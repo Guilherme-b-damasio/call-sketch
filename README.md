@@ -47,7 +47,7 @@ claude.cmd          # uma vez: /login com a sua conta, depois /exit
 git clone git@github.com:Guilherme-b-damasio/call-sketch.git; cd call-sketch
 cd engine; python -m venv .venv
 .venv\Scripts\python -m pip install -e ".[gpu,dev]"     # sem placa NVIDIA, tire o gpu
-cd ..pp; npm install
+cd ..\app; npm install
 npm run dev
 ```
 
@@ -59,12 +59,16 @@ O app acha o motor em `engine/.venv` sozinho. Tudo o mais fica em Configuraçõe
 
 ## Instalador (para quem não programa)
 
-```powershell
-engineuild.ps1            # empacota o motor com PyInstaller em engine/dist
-cd app; npm run dist         # gera app/dist/CallSketch-Setup-x.y.z.exe
-```
+Baixe na página de [Releases](https://github.com/Guilherme-b-damasio/call-sketch/releases): Windows (`.exe`), macOS Apple Silicon (`.dmg`) e Linux (`.deb` e `.AppImage`). As instruções de cada sistema estão na release. Quem instala ainda precisa do Claude Code logado (ou de uma chave de API).
 
-Quem instala ainda precisa do Claude Code logado (ou de uma chave de API).
+**macOS:** não existe captura nativa do som do sistema. Instale o [BlackHole](https://existential.audio/blackhole/) e crie um dispositivo de saída múltipla com os alto-falantes + BlackHole; o app acha o BlackHole sozinho.
+
+Para gerar uma release, crie um tag `v*` (ex: `git tag v0.3.1 && git push origin v0.3.1`). O GitHub Actions compila nos três sistemas e publica. Para gerar só no seu PC:
+
+```powershell
+cd engine; .venv\Scripts\python -m pip install pyinstaller; .venv\Scripts\python build.py
+cd ..\app; npm run dist:win        # ou dist:mac / dist:linux, no próprio sistema
+```
 
 ## Desenvolvimento
 
