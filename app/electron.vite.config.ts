@@ -11,5 +11,11 @@ export default defineConfig({
   renderer: {
     resolve: { alias: { ...shared, '@': resolve('src/renderer/src') } },
     plugins: [react(), tailwindcss()],
+    build: {
+      rollupOptions: {
+        // app (index) + pagina de quem assiste uma sessao (viewer), servida pelo proprio app do host
+        input: { index: resolve('src/renderer/index.html'), viewer: resolve('src/renderer/viewer.html') },
+      },
+    },
   },
 })

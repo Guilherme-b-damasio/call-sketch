@@ -2,7 +2,7 @@ import { Check as CheckIcon, Copy, Download, Maximize, Mic, Settings, ZoomIn, Zo
 import { AnimatePresence, motion } from 'motion/react'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { AppState } from '@shared/types'
-import { api, useDark } from '../hooks'
+import { useDark } from '../hooks'
 import { preload, renderDiagram } from '../mermaid'
 import { cx, IconButton, ModeIcon, SoundBars } from './ui'
 
@@ -16,14 +16,26 @@ const PAD = 48
 const MAX_FIT = 1.6
 
 /** Area do diagrama: renderiza o mermaid, faz transicao entre versoes, zoom e arrastar. */
+/** Texto do estado vazio quando quem usa nao e o app que escuta (ex: quem assiste uma sessao). */
+export interface EmptyText {
+  title: string
+  detail?: string
+  waiting?: boolean // mostra o "pulso" de esperando desenho
+}
+
 interface CanvasProps {
   state: AppState
   modeName?: string
   onSettings?: () => void
   compact?: boolean
+  empty?: EmptyText
+  /** Erro de sintaxe do diagrama; no app vai pro Claude corrigir. */
+  onRenderError?: (error: string) => void
 }
 
-export function Canvas({ state, modeName, onSettings, compact = false }: CanvasProps) {
+const reportToApp = (error: string) => void window.api?.renderError(error)
+
+export function Canvas({ state, modeName, onSettings, compact = false, empty, onRenderError = reportToApp }: CanvasProps) {
   const dark = useDark()
   const boxRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
@@ -62,12 +74,12 @@ export function Canvas({ state, modeName, onSettings, compact = false }: CanvasP
     renderDiagram(state.mermaid, dark)
       .then((r) => alive && setLayer({ key: `${state.version}-${dark}`, html: r.svg, w: r.w, h: r.h }))
       .catch((e: unknown) => {
-        if (alive) void api.renderError(String(e instanceof Error ? e.message : e).slice(0, 500))
+        if (alive) onRenderError(String(e instanceof Error ? e.message : e).slice(0, 500))
       })
     return () => {
       alive = false
     }
-  }, [state.version, state.mermaid, dark])
+  }, [state.version, state.mermaid, dark, onRenderError])
 
   // enquadra o diagrama novo (a nao ser que a pessoa tenha mexido no zoom)
   useLayoutEffect(() => {
@@ -160,7 +172,7 @@ export function Canvas({ state, modeName, onSettings, compact = false }: CanvasP
         </AnimatePresence>
       </div>
 
-      <AnimatePresence>{!layer && <EmptyState state={state} onSettings={onSettings} compact={compact} />}</AnimatePresence>
+      <AnimatePresence>{!layer && <EmptyState state={state} onSettings={onSettings} compact={compact} override={empty} />}</AnimatePresence>
 
       {!compact && state.activeMode && layer && (
         <div className="pointer-events-none absolute left-4 top-4 flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white/80 px-2.5 py-1 text-xs font-medium text-zinc-600 backdrop-blur dark:border-white/8 dark:bg-ink-900/70 dark:text-zinc-300">
@@ -218,14 +230,32 @@ export function Canvas({ state, modeName, onSettings, compact = false }: CanvasP
   )
 }
 
-function EmptyState({ state, onSettings, compact }: { state: AppState; onSettings?: () => void; compact: boolean }) {
+function EmptyState({
+  state,
+  onSettings,
+  compact,
+  override,
+}: {
+  state: AppState
+  onSettings?: () => void
+  compact: boolean
+  override?: EmptyText
+}) {
   const { engine } = state
   let title: string
   let detail: string | undefined
   let icon: React.ReactNode
   let action: React.ReactNode = null
 
-  if (engine.state === 'error') {
+  if (override) {
+    title = override.title
+    detail = override.detail
+    icon = override.waiting ? (
+      <SoundBars className="!h-6 [&>span]:!w-[5px]" />
+    ) : (
+      <span className="size-6 animate-spin rounded-full border-2 border-current border-t-transparent" />
+    )
+  } else if (engine.state === 'error') {
     title = 'O motor de áudio parou'
     detail = engine.msg
     icon = <Mic className="size-6" />
@@ -259,7 +289,7 @@ function EmptyState({ state, onSettings, compact }: { state: AppState; onSetting
     >
       <div className="pointer-events-auto flex max-w-sm flex-col items-center gap-3 text-center">
         <div className="relative grid size-16 place-items-center rounded-2xl bg-accent-500/10 text-accent-600 dark:text-accent-300">
-          {engine.state === 'ready' && !state.paused && (
+          {(override ? override.waiting : engine.state === 'ready' && !state.paused) && (
             <span className="absolute inset-0 animate-pulse-ring rounded-2xl bg-accent-500/25" />
           )}
           {icon}
