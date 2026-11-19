@@ -3,3 +3,9 @@ __pycache__/
 *.egg-info/
 .pytest_cache/
 .ruff_cache/
+node_modules/
+app/out/
+app/dist/
+*.tsbuildinfo
+engine/build/
+engine/dist/
