@@ -1,7 +1,8 @@
 /** Pagina de quem assiste uma sessao: no navegador ou numa janela do app. So recebe o desenho. */
-import { AppWindow, PencilLine, Radio, WifiOff } from 'lucide-react'
+import { AppWindow, Maximize2, PencilLine, PictureInPicture2, Radio, WifiOff } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { AUTO, type AppState, type ShareView } from '@shared/types'
 import { Canvas, type EmptyText } from './Canvas'
 import { cx, ModeIcon, SoundBars } from './ui'
@@ -18,6 +19,49 @@ interface StateReply {
 }
 
 const viewerId = Math.random().toString(36).slice(2, 12) // so pra contar quem esta assistindo
+
+/** No app: o preload da janela de quem assiste so sabe deixar a janela pequena e por cima. */
+interface ViewerBridge {
+  setFloating(on: boolean): Promise<boolean>
+}
+const bridge = (window as unknown as { callSketchViewer?: ViewerBridge }).callSketchViewer
+
+/** No navegador: Document Picture-in-Picture (Chrome e Edge no computador). */
+interface DocumentPiP {
+  requestWindow(opts: { width: number; height: number }): Promise<Window>
+}
+const docPip = (window as unknown as { documentPictureInPicture?: DocumentPiP }).documentPictureInPicture
+
+/** Abre uma janela flutuante do navegador com o mesmo visual da pagina; devolve onde desenhar. */
+async function openPip(onClose: () => void): Promise<{ win: Window; host: HTMLElement }> {
+  const win = await docPip!.requestWindow({ width: 520, height: 360 })
+  for (const node of document.querySelectorAll('link[rel="stylesheet"], style')) win.document.head.append(node.cloneNode(true))
+  win.document.title = document.title
+  const host = win.document.createElement('div')
+  win.document.body.append(host)
+  win.addEventListener('pagehide', onClose, { once: true })
+  return { win, host }
+}
+
+/** Flutuar: no app a propria janela vira mini e fica por cima; no navegador abre a janelinha do PiP. */
+function useFloat() {
+  const [appFloating, setAppFloating] = useState(false)
+  const [pip, setPip] = useState<{ win: Window; host: HTMLElement } | null>(null)
+  const canFloat = !!bridge || !!docPip
+
+  const toggle = useCallback(async () => {
+    if (bridge) return setAppFloating(await bridge.setFloating(!appFloating))
+    if (pip) return pip.win.close()
+    try {
+      setPip(await openPip(() => setPip(null)))
+    } catch {
+      // o navegador recusou (sem clique do usuario, ou ja tem uma aberta)
+    }
+  }, [appFloating, pip])
+
+  useEffect(() => () => pip?.win.close(), [pip]) // fechou a aba: fecha a janelinha junto
+  return { canFloat, floating: appFloating || !!pip, compact: appFloating, pipHost: pip?.host ?? null, toggle }
+}
 
 /** Pergunta "tem desenho novo?" em sequencia; o host segura a pergunta ate ter novidade. */
 function useSession(): { view: ShareView | null; link: Link } {
@@ -85,6 +129,8 @@ export function Viewer() {
   const { view, link } = useSession()
   const state = useMemo(() => toState(view), [view])
   const empty = emptyText(link, view)
+  const float = useFloat()
+  const canvas = <Canvas state={state} modeName={view?.modeName} empty={empty} onRenderError={noop} />
 
   useEffect(() => {
     document.title = view?.modeName ? `${view.modeName} · Call Sketch` : 'Call Sketch · ao vivo'
@@ -92,32 +138,85 @@ export function Viewer() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
-      <header className="flex h-12 shrink-0 items-center gap-3 border-b border-zinc-200/80 px-4 dark:border-white/6">
-        <span className="grid size-6 place-items-center rounded-md bg-gradient-to-br from-accent-400 to-accent-600 text-white shadow-sm shadow-accent-600/30">
-          <PencilLine className="size-3.5" strokeWidth={2.5} />
-        </span>
-        <span className="text-sm font-semibold tracking-tight">Call Sketch</span>
-        <span className="h-4 w-px bg-zinc-200 dark:bg-white/10" />
+      <header
+        className={cx(
+          'flex shrink-0 items-center gap-3 border-b border-zinc-200/80 dark:border-white/6',
+          float.compact ? 'h-9 px-3' : 'h-12 px-4',
+        )}
+      >
+        {!float.compact && (
+          <>
+            <span className="grid size-6 place-items-center rounded-md bg-gradient-to-br from-accent-400 to-accent-600 text-white shadow-sm shadow-accent-600/30">
+              <PencilLine className="size-3.5" strokeWidth={2.5} />
+            </span>
+            <span className="text-sm font-semibold tracking-tight">Call Sketch</span>
+            <span className="h-4 w-px bg-zinc-200 dark:bg-white/10" />
+          </>
+        )}
         <LinkPill link={link} view={view} />
-        {view?.activeMode && (
+        {!float.compact && view?.activeMode && (
           <span className="hidden items-center gap-1.5 text-xs font-medium text-zinc-500 sm:flex dark:text-zinc-400">
             <ModeIcon id={view.activeMode} className="size-3.5" /> {view.modeName}
           </span>
         )}
+        <span className="ml-auto" />
+        {float.canFloat && <FloatButton floating={float.floating} onClick={() => void float.toggle()} />}
         {!insideApp && (
           <a
             href={`callsketch://join?url=${encodeURIComponent(location.origin + location.pathname)}`}
             title="Abre esta sessão no Call Sketch instalado"
-            className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-600 hover:bg-zinc-900/5 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/6"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-600 hover:bg-zinc-900/5 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/6"
           >
             <AppWindow className="size-3.5" /> Abrir no app
           </a>
         )}
       </header>
       <main className="relative min-h-0 flex-1">
-        <Canvas state={state} modeName={view?.modeName} empty={empty} onRenderError={noop} />
+        {float.pipHost ? (
+          <div className="grid h-full place-items-center p-6 text-center">
+            <div className="space-y-3">
+              <PictureInPicture2 className="mx-auto size-8 text-zinc-400" />
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">O diagrama está na janela flutuante.</p>
+              <button
+                type="button"
+                onClick={() => void float.toggle()}
+                className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs font-medium hover:bg-zinc-900/5 dark:border-white/10 dark:hover:bg-white/6"
+              >
+                Trazer de volta
+              </button>
+            </div>
+          </div>
+        ) : (
+          canvas
+        )}
       </main>
+      {float.pipHost &&
+        createPortal(
+          <div className="flex h-screen flex-col overflow-hidden">
+            <div className="flex h-9 shrink-0 items-center gap-3 border-b border-zinc-200/80 px-3 dark:border-white/6">
+              <LinkPill link={link} view={view} />
+              <span className="ml-auto" />
+              <FloatButton floating onClick={() => void float.toggle()} />
+            </div>
+            <div className="relative min-h-0 flex-1">{canvas}</div>
+          </div>,
+          float.pipHost,
+        )}
     </div>
+  )
+}
+
+function FloatButton({ floating, onClick }: { floating: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={floating ? 'Volta ao tamanho normal' : 'Deixa o diagrama numa janelinha sempre por cima'}
+      className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-2.5 py-1 text-xs font-medium text-zinc-600 hover:bg-zinc-900/5 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/6"
+    >
+      {floating ? <Maximize2 className="size-3.5" /> : <PictureInPicture2 className="size-3.5" />}
+      {floating ? 'Voltar' : 'Flutuar'}
+    </button>
   )
 }
 
