@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { app, BrowserWindow, globalShortcut, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, globalShortcut, ipcMain, type Rectangle, screen, shell } from 'electron'
 import { AUTO, type LLMTest, type Settings } from '@shared/types'
 import { type LLM, makeLLM } from './claude'
 import { listModels } from './openai'
@@ -174,9 +174,36 @@ function toggleOverlay(): void {
 
 const viewerWins = new Set<BrowserWindow>()
 let pausedByViewer = false
+const floatBounds = new Map<BrowserWindow, Rectangle>() // tamanho de antes de flutuar
+
+const FLOAT = { width: 520, height: 360, margin: 16 }
+
+/** Janela de quem assiste: pequena no canto e sempre por cima (on) ou de volta ao normal. */
+function setViewerFloating(win: BrowserWindow, on: boolean): boolean {
+  if (on && !floatBounds.has(win)) {
+    floatBounds.set(win, win.getBounds())
+    const area = screen.getDisplayMatching(win.getBounds()).workArea
+    win.setMinimumSize(320, 200)
+    win.setBounds({
+      x: area.x + area.width - FLOAT.width - FLOAT.margin,
+      y: area.y + area.height - FLOAT.height - FLOAT.margin,
+      width: FLOAT.width,
+      height: FLOAT.height,
+    })
+    win.setAlwaysOnTop(true, 'floating')
+    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  } else if (!on && floatBounds.has(win)) {
+    win.setAlwaysOnTop(false)
+    win.setVisibleOnAllWorkspaces(false)
+    win.setMinimumSize(480, 320)
+    win.setBounds(floatBounds.get(win)!)
+    floatBounds.delete(win)
+  }
+  return floatBounds.has(win)
+}
 let pendingLink: string | null = null
 
-/** Abre a sessao de outra pessoa numa janela: e a mesma pagina do navegador, isolada (sem preload). */
+/** Abre a sessao de outra pessoa numa janela: e a mesma pagina do navegador, isolada (o preload so sabe flutuar). */
 function joinSession(link: string): void {
   const url = parseJoinLink(link)
   if (!url) throw new Error('Link de sessão inválido. Ele tem o formato https://…/s/código/')
@@ -189,7 +216,12 @@ function joinSession(link: string): void {
     title: 'Call Sketch · sessão',
     backgroundColor: '#0a0a0c',
     autoHideMenuBar: true,
-    webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
+    webPreferences: {
+      preload: join(__dirname, '../preload/viewer.js'),
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
   })
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   win.webContents.on('will-navigate', (e, to) => {
@@ -203,6 +235,7 @@ function joinSession(link: string): void {
   }
   win.on('closed', () => {
     viewerWins.delete(win)
+    floatBounds.delete(win)
     if (viewerWins.size === 0 && pausedByViewer) {
       pausedByViewer = false
       store.setPaused(false)
@@ -303,6 +336,11 @@ ipcMain.handle('overlay:toggle', () => toggleOverlay())
 ipcMain.handle('share:start', () => share.start())
 ipcMain.handle('share:stop', () => share.stop())
 ipcMain.handle('session:join', (_, link: string) => joinSession(link))
+ipcMain.handle('viewer:float', (e, on: boolean) => {
+  const win = BrowserWindow.fromWebContents(e.sender)
+  if (!win || !viewerWins.has(win)) return false // so as janelas de quem assiste
+  return setViewerFloating(win, on === true)
+})
 ipcMain.handle('modes:open-folder', () => {
   mkdirSync(userModesDir, { recursive: true })
   return shell.openPath(userModesDir)

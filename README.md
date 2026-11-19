@@ -39,7 +39,8 @@ No canvas: roda do mouse dá zoom, arrastar move, duplo clique enquadra. Dá pra
 Para todo mundo da call acompanhar o desenho ao vivo: clique no ícone de transmissão no topo e em **Compartilhar**. O app gera um link; mande no chat da call.
 
 - **Quem abre no navegador** vê o diagrama atualizando sozinho, sem instalar nada.
-- **Quem tem o Call Sketch instalado** pode clicar em "Abrir no app" na página, ou colar o link em **Entrar numa sessão**. Enquanto assiste, a escuta dessa pessoa fica pausada (não gasta o Claude dela).
+- **Quem tem o Call Sketch instalado** pode clicar em "Abrir no app" na página, ou colar o link em **Entrar numa sessão**. Enquanto assiste, a escuta dessa pessoa fica pausada (não gasta a IA dela).
+- **Flutuar** deixa o diagrama numa janelinha sempre por cima da call. No app instalado funciona sempre; no navegador, no Chrome e no Edge do computador pelo link público (https). Firefox, Safari e celular ainda não têm esse recurso.
 - Só o **desenho** é compartilhado. A transcrição da conversa nunca sai do seu PC.
 
 Não tem servidor nosso no meio. O seu próprio app serve a página, e um túnel grátis da Cloudflare (o `cloudflared`, baixado sozinho no primeiro uso, sem conta nem cadastro) deixa o link acessível pela internet. Também aparece um link da rede local, para quem está no mesmo Wi-Fi ou escritório. O link tem um código aleatório, muda a cada sessão e para de funcionar quando você para de compartilhar ou fecha o app.
