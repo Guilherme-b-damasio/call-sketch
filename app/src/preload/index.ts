@@ -14,6 +14,9 @@ const api: Api = {
   renderError: (error) => ipcRenderer.invoke('render:error', error),
   toggleOverlay: () => ipcRenderer.invoke('overlay:toggle'),
   openModesFolder: () => ipcRenderer.invoke('modes:open-folder'),
+  startShare: () => ipcRenderer.invoke('share:start'),
+  stopShare: () => ipcRenderer.invoke('share:stop'),
+  joinSession: (link) => ipcRenderer.invoke('session:join', link),
   onState: (cb) => {
     const listener = (_: IpcRendererEvent, s: AppState) => cb(s)
     ipcRenderer.on('state', listener)

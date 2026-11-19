@@ -1,5 +1,5 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { app, BrowserWindow, globalShortcut, ipcMain, shell } from 'electron'
 import { AUTO, type Settings } from '@shared/types'
 import { type LLM, makeLLM } from './claude'
@@ -7,11 +7,17 @@ import { Engine, resolveEngine } from './engine'
 import { loadModes, type Mode, modeInfo } from './modes'
 import { loadSettings, saveSettings } from './settings'
 import { fixShellPath } from './shellPath'
+import { PROTOCOL, parseJoinLink, ShareSession } from './share/session'
 import { Sketcher } from './sketcher'
 import { Store } from './store'
 import { Validator } from './validator'
 
 fixShellPath() // antes de procurar o claude e de iniciar o motor
+
+// um app so: clicar num link callsketch:// com o app aberto cai aqui na mesma instancia
+if (!app.requestSingleInstanceLock()) app.exit(0) // ja tem um aberto: ele recebe o link
+if (app.isPackaged) app.setAsDefaultProtocolClient(PROTOCOL)
+else if (process.argv[1]) app.setAsDefaultProtocolClient(PROTOCOL, process.execPath, [resolve(process.argv[1])])
 
 const AUTO_ANNOUNCE = 'Modo automático. Vou escolher o melhor desenho conforme a conversa.'
 
@@ -29,6 +35,11 @@ let overlayWin: BrowserWindow | null = null
 
 const store = new Store(AUTO)
 const engine = new Engine()
+const share = new ShareSession(store, {
+  webDir: join(__dirname, '../renderer'), // o renderer compilado (tem a viewer.html)
+  binDir: join(app.getPath('userData'), 'bin'),
+  modeName: (id) => modes.get(id)?.name ?? id,
+})
 
 function getLLM(): LLM {
   llm ??= makeLLM(settings)
@@ -158,6 +169,84 @@ function toggleOverlay(): void {
   loadRenderer(overlayWin)
 }
 
+// ----------------------------------------------------------- sessao de outra pessoa
+
+const viewerWins = new Set<BrowserWindow>()
+let pausedByViewer = false
+let pendingLink: string | null = null
+
+/** Abre a sessao de outra pessoa numa janela: e a mesma pagina do navegador, isolada (sem preload). */
+function joinSession(link: string): void {
+  const url = parseJoinLink(link)
+  if (!url) throw new Error('Link de sessão inválido. Ele tem o formato https://…/s/código/')
+  const origin = new URL(url).origin
+  const win = new BrowserWindow({
+    width: 1100,
+    height: 720,
+    minWidth: 480,
+    minHeight: 320,
+    title: 'Call Sketch · sessão',
+    backgroundColor: '#0a0a0c',
+    autoHideMenuBar: true,
+    webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false },
+  })
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  win.webContents.on('will-navigate', (e, to) => {
+    if (new URL(to).origin !== origin) e.preventDefault() // nao sai da sessao
+  })
+  viewerWins.add(win)
+  // assistindo a sessao de outra pessoa: pausa a sua escuta pra nao gastar o seu Claude
+  if (!store.state.paused) {
+    store.setPaused(true)
+    pausedByViewer = true
+  }
+  win.on('closed', () => {
+    viewerWins.delete(win)
+    if (viewerWins.size === 0 && pausedByViewer) {
+      pausedByViewer = false
+      store.setPaused(false)
+    }
+  })
+  // link recem-criado pode ainda nao existir no DNS, ou a rede piscou: tenta de novo por um tempo
+  let tries = 0
+  win.webContents.on('did-fail-load', (_e, code, _desc, _url, isMainFrame) => {
+    if (!isMainFrame || code === -3 || win.isDestroyed()) return // -3: navegacao cancelada
+    if (++tries > 15) return
+    setTimeout(() => {
+      if (!win.isDestroyed()) void win.loadURL(`${url}?app=1`)
+    }, 2000)
+  })
+  win.webContents.on('did-finish-load', () => (tries = 0))
+  void win.loadURL(`${url}?app=1`)
+}
+
+function handleLink(argv: string[]): void {
+  const link = argv.find((a) => a.startsWith(`${PROTOCOL}:`))
+  if (!link) return
+  if (!app.isReady()) {
+    pendingLink = link
+    return
+  }
+  try {
+    joinSession(link)
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+app.on('second-instance', (_e, argv) => {
+  if (mainWin) {
+    if (mainWin.isMinimized()) mainWin.restore()
+    mainWin.focus()
+  }
+  handleLink(argv)
+})
+app.on('open-url', (e, url) => {
+  e.preventDefault() // macOS
+  handleLink([url])
+})
+handleLink(process.argv) // Windows/Linux: o app foi aberto pelo link
+
 store.on('change', (s) => {
   for (const w of [mainWin, overlayWin]) if (w && !w.isDestroyed()) w.webContents.send('state', s)
 })
@@ -196,6 +285,9 @@ ipcMain.handle('note', (_, text: string) => text.trim() && store.addNote(text.tr
 ipcMain.handle('paused:set', (_, paused: boolean) => store.setPaused(paused))
 ipcMain.handle('render:error', (_, err: string | null) => store.setRenderError(err))
 ipcMain.handle('overlay:toggle', () => toggleOverlay())
+ipcMain.handle('share:start', () => share.start())
+ipcMain.handle('share:stop', () => share.stop())
+ipcMain.handle('session:join', (_, link: string) => joinSession(link))
 ipcMain.handle('modes:open-folder', () => {
   mkdirSync(userModesDir, { recursive: true })
   return shell.openPath(userModesDir)
@@ -208,6 +300,37 @@ app.whenReady().then(() => {
   startEngine()
   sketcher.start()
   validator.start()
+
+  if (pendingLink) handleLink([pendingLink])
+
+  // so em dev, pra testar a sessao sem clicar: CS_AUTOSHARE=1 compartilha ao abrir; CS_DEMO=1 poe um desenho
+  if (!app.isPackaged && process.env.CS_DEMO) {
+    const demo = ['flowchart TD', '  A["Cliente"] --> B["API Gateway"]', '  B --> C["Auth"]', '  B --> D[("Postgres")]']
+    store.setDiagram(demo.join('\n'), 'arquitetura')
+  }
+  if (!app.isPackaged && process.env.CS_AUTOSHARE) {
+    void share.start().then(() => {
+      console.log('[sessao]', JSON.stringify(store.state.share))
+      // CS_SELFJOIN=arquivo.png: o proprio app entra pelo link publico e grava um print da janela
+      const shotFile = process.env.CS_SELFJOIN
+      const url = store.state.share.publicUrl
+      if (!shotFile || !url) return
+      joinSession(url)
+      const win = [...viewerWins].at(-1)
+      win?.webContents.on('did-fail-load', (_e, code, desc) => console.log('[sessao] falhou ao carregar', code, desc))
+      win?.webContents.on('console-message', (e) => console.log('[sessao] viewer:', e.message))
+      setTimeout(() => {
+        win?.webContents
+          .executeJavaScript('[document.body.innerText, document.querySelectorAll("svg g.node").length].join(" | ")')
+          .then((txt: string) => console.log('[sessao] janela de quem assiste:', txt.replace(/\s+/g, ' ')))
+          .catch((err: unknown) => console.log('[sessao] leitura falhou', err))
+        win?.webContents
+          .capturePage()
+          .then((img) => writeFileSync(shotFile, img.toPNG()))
+          .catch(() => {}) // sem GPU o print pode falhar; o texto acima ja confirma
+      }, 12_000)
+    })
+  }
 
   globalShortcut.register('CommandOrControl+Shift+D', () => sketcher.requestNow())
   globalShortcut.register('CommandOrControl+Shift+O', () => toggleOverlay())
@@ -226,4 +349,5 @@ app.on('before-quit', () => {
   validator.stop()
   store.setEngine({ state: 'stopped' })
   engine.stop()
+  void share.stop(false)
 })

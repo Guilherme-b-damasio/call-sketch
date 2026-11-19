@@ -1,4 +1,4 @@
-import { Cpu, Pause, PencilLine, PictureInPicture2, Play, RefreshCw, Settings, Zap } from 'lucide-react'
+import { Cpu, Pause, PencilLine, PictureInPicture2, Play, Radio, RefreshCw, Settings, Zap } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import type { AppState } from '@shared/types'
 import { api } from '../hooks'
@@ -53,7 +53,14 @@ function StatusPill({ state }: { state: AppState }) {
   )
 }
 
-export function TitleBar({ state, onSettings }: { state: AppState; onSettings: () => void }) {
+interface TitleBarProps {
+  state: AppState
+  onSettings: () => void
+  onSession: () => void
+}
+
+export function TitleBar({ state, onSettings, onSession }: TitleBarProps) {
+  const sharing = state.share.state === 'on' || state.share.state === 'starting'
   const device = state.engine.device
   return (
     <header className="drag flex h-12 shrink-0 items-center gap-3 border-b border-zinc-200/80 pl-4 pr-[150px] dark:border-white/6">
@@ -96,6 +103,26 @@ export function TitleBar({ state, onSettings }: { state: AppState; onSettings: (
         </IconButton>
         <IconButton label="Janela flutuante" shortcut="Ctrl+Shift+O" onClick={() => void api.toggleOverlay()}>
           <PictureInPicture2 className="size-4" />
+        </IconButton>
+        <IconButton
+          label={sharing ? `Sessão ao vivo (${state.share.viewers} assistindo)` : 'Sessão ao vivo'}
+          active={sharing}
+          onClick={onSession}
+          className={cx('relative', sharing && '!bg-rose-500/12 !text-rose-600 dark:!text-rose-400')}
+        >
+          <Radio className={cx('size-4', state.share.state === 'starting' && 'animate-pulse')} />
+          <AnimatePresence>
+            {sharing && state.share.viewers > 0 && (
+              <motion.span
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                exit={{ scale: 0 }}
+                className="absolute -right-0.5 -top-0.5 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-rose-500 px-0.5 text-[9px] font-bold text-white"
+              >
+                {state.share.viewers}
+              </motion.span>
+            )}
+          </AnimatePresence>
         </IconButton>
         <IconButton label="Configurações" onClick={onSettings}>
           <Settings className="size-4" />
