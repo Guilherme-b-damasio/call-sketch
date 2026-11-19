@@ -34,6 +34,16 @@ Um app desktop (Electron + React) com o diagrama no centro, a conversa e a valid
 
 No canvas: roda do mouse dá zoom, arrastar move, duplo clique enquadra. Dá pra copiar o código Mermaid ou salvar o SVG. A caixa de texto embaixo da conversa manda notas e correções direto pro desenho.
 
+## Sessão compartilhada
+
+Para todo mundo da call acompanhar o desenho ao vivo: clique no ícone de transmissão no topo e em **Compartilhar**. O app gera um link; mande no chat da call.
+
+- **Quem abre no navegador** vê o diagrama atualizando sozinho, sem instalar nada.
+- **Quem tem o Call Sketch instalado** pode clicar em "Abrir no app" na página, ou colar o link em **Entrar numa sessão**. Enquanto assiste, a escuta dessa pessoa fica pausada (não gasta o Claude dela).
+- Só o **desenho** é compartilhado. A transcrição da conversa nunca sai do seu PC.
+
+Não tem servidor nosso no meio. O seu próprio app serve a página, e um túnel grátis da Cloudflare (o `cloudflared`, baixado sozinho no primeiro uso, sem conta nem cadastro) deixa o link acessível pela internet. Também aparece um link da rede local, para quem está no mesmo Wi-Fi ou escritório. O link tem um código aleatório, muda a cada sessão e para de funcionar quando você para de compartilhar ou fecha o app.
+
 ## Instalação (desenvolvimento)
 
 Requisitos: Windows, Python 3.11+ e Node.js 22+. No macOS é preciso um driver de loopback, como o BlackHole.
