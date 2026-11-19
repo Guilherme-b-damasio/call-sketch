@@ -15,13 +15,6 @@ interface View {
 const PAD = 48
 const MAX_FIT = 1.6
 
-function svgSize(svg: SVGSVGElement): { w: number; h: number } {
-  const vb = svg.viewBox.baseVal
-  if (vb && vb.width) return { w: vb.width, h: vb.height }
-  const r = svg.getBoundingClientRect()
-  return { w: r.width || 1, h: r.height || 1 }
-}
-
 /** Area do diagrama: renderiza o mermaid, faz transicao entre versoes, zoom e arrastar. */
 interface CanvasProps {
   state: AppState
@@ -36,7 +29,8 @@ export function Canvas({ state, modeName, onSettings, compact = false }: CanvasP
   const stageRef = useRef<HTMLDivElement>(null)
   const view = useRef<View>({ x: 0, y: 0, k: 1 })
   const userMoved = useRef(false)
-  const [layer, setLayer] = useState<{ key: string; html: string } | null>(null)
+  const [layer, setLayer] = useState<{ key: string; html: string; w: number; h: number } | null>(null)
+  const size = useRef({ w: 1, h: 1 })
   const [zoom, setZoom] = useState(100)
   const [copied, setCopied] = useState(false)
 
@@ -50,9 +44,8 @@ export function Canvas({ state, modeName, onSettings, compact = false }: CanvasP
 
   const fit = useCallback(() => {
     const box = boxRef.current
-    const svg = stageRef.current?.querySelector<SVGSVGElement>('[data-current] svg')
-    if (!box || !svg) return
-    const { w, h } = svgSize(svg)
+    if (!box || !box.clientWidth) return
+    const { w, h } = size.current
     const k = Math.min((box.clientWidth - PAD * 2) / w, (box.clientHeight - PAD * 2) / h, MAX_FIT)
     view.current = { k, x: (box.clientWidth - w * k) / 2, y: (box.clientHeight - h * k) / 2 }
     userMoved.current = false
@@ -67,7 +60,7 @@ export function Canvas({ state, modeName, onSettings, compact = false }: CanvasP
     }
     let alive = true
     renderDiagram(state.mermaid, dark)
-      .then((html) => alive && setLayer({ key: `${state.version}-${dark}`, html }))
+      .then((r) => alive && setLayer({ key: `${state.version}-${dark}`, html: r.svg, w: r.w, h: r.h }))
       .catch((e: unknown) => {
         if (alive) void api.renderError(String(e instanceof Error ? e.message : e).slice(0, 500))
       })
@@ -76,14 +69,10 @@ export function Canvas({ state, modeName, onSettings, compact = false }: CanvasP
     }
   }, [state.version, state.mermaid, dark])
 
-  // fixa o tamanho natural do svg e enquadra (a nao ser que a pessoa tenha mexido no zoom)
+  // enquadra o diagrama novo (a nao ser que a pessoa tenha mexido no zoom)
   useLayoutEffect(() => {
-    const svg = stageRef.current?.querySelector<SVGSVGElement>('[data-current] svg')
-    if (!svg) return
-    const { w, h } = svgSize(svg)
-    svg.setAttribute('width', String(w))
-    svg.setAttribute('height', String(h))
-    svg.style.maxWidth = 'none'
+    if (!layer) return
+    size.current = { w: layer.w, h: layer.h }
     if (!userMoved.current) fit()
   }, [layer, fit])
 
@@ -160,7 +149,6 @@ export function Canvas({ state, modeName, onSettings, compact = false }: CanvasP
           {layer && (
             <motion.div
               key={layer.key}
-              data-current=""
               className="diagram absolute left-0 top-0"
               initial={{ opacity: 0, scale: 0.985, filter: 'blur(4px)' }}
               animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}

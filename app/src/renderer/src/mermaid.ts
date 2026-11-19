@@ -91,9 +91,33 @@ export function preload(): void {
   void load()
 }
 
-export async function renderDiagram(code: string, dark: boolean): Promise<string> {
+export interface Rendered {
+  svg: string
+  w: number
+  h: number
+}
+
+/**
+ * O mermaid devolve o svg com width="100%" e max-width, que dentro do palco (posicionado e sem
+ * largura propria) pode encolher ate sumir. Fixa o tamanho natural, tirado do viewBox.
+ */
+export function fixSize(svg: string): Rendered {
+  const vb = /viewBox="([\d.\-e]+)[ ,]+([\d.\-e]+)[ ,]+([\d.e]+)[ ,]+([\d.e]+)"/.exec(svg)
+  const w = vb ? Math.ceil(Number(vb[3])) : 800
+  const h = vb ? Math.ceil(Number(vb[4])) : 600
+  const fixed = svg.replace(/<svg\s[^>]*>/, (tag) =>
+    tag
+      .replace(/\swidth="[^"]*"/, '')
+      .replace(/\sheight="[^"]*"/, '')
+      .replace(/max-width:\s*[^;"]+;?/, '')
+      .replace(/^<svg/, `<svg width="${w}" height="${h}"`),
+  )
+  return { svg: fixed, w, h }
+}
+
+export async function renderDiagram(code: string, dark: boolean): Promise<Rendered> {
   const mermaid = await load()
   configure(mermaid, dark)
   const { svg } = await mermaid.render(`cs-${++seq}`, code)
-  return svg
+  return fixSize(svg)
 }
