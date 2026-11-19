@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import queue
 import threading
 import warnings
@@ -10,6 +11,8 @@ import numpy as np
 
 CAPTURE_RATE = 48000
 WHISPER_RATE = 16000
+
+log = logging.getLogger(__name__)
 
 
 def to_16k_mono(data: np.ndarray) -> np.ndarray:
@@ -93,14 +96,42 @@ class AudioCapture(threading.Thread):
                     self.out.put((self.who, phrase))
 
 
+# dispositivos virtuais que trazem o som do sistema (no macOS nao existe loopback nativo)
+VIRTUAL_LOOPBACK = ("blackhole", "loopback", "soundflower", "monitor of", ".monitor")
+
+
+def _loopback(sc, speaker) -> object | None:
+    """Captura do que sai na saida padrao. Windows (WASAPI) e Linux (Pulse/PipeWire) tem nativo."""
+    for key in (getattr(speaker, "id", None), speaker.name):
+        if key is None:
+            continue
+        try:
+            return sc.get_microphone(id=str(key), include_loopback=True)
+        except Exception:  # macOS nao suporta; outros podem nao achar pelo nome
+            pass
+    try:
+        mics = sc.all_microphones(include_loopback=True)
+    except Exception:
+        mics = sc.all_microphones()
+    for m in mics:
+        if any(v in m.name.lower() for v in VIRTUAL_LOOPBACK):
+            return m
+    return None
+
+
 def default_sources(mic: bool) -> list[tuple[str, object, str]]:
-    """[(quem, dispositivo, nome)]: loopback da saida padrao (+ microfone padrao)."""
+    """[(quem, dispositivo, nome)]: som do sistema (+ microfone padrao)."""
     import soundcard as sc
 
     # o soundcard religa os proprios avisos ao ser importado; desliga depois do import
     warnings.filterwarnings("ignore", message="data discontinuity")
+    sources: list[tuple[str, object, str]] = []
     speaker = sc.default_speaker()
-    sources = [("call", sc.get_microphone(id=str(speaker.name), include_loopback=True), speaker.name)]
+    call = _loopback(sc, speaker)
+    if call is not None:
+        sources.append(("call", call, call.name))
+    else:
+        log.warning("sem captura do som do sistema; no macOS instale o BlackHole (veja o README)")
     if mic:
         m = sc.default_microphone()
         sources.append(("eu", m, m.name))

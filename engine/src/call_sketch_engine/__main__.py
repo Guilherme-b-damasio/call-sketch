@@ -45,6 +45,7 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     ap.add_argument("--no-mic", action="store_true")
     ap.add_argument("--max-phrase", type=float, default=15.0)
     ap.add_argument("--list-devices", action="store_true")
+    ap.add_argument("--check", action="store_true", help="so confere se as bibliotecas carregam (build)")
     return ap.parse_args(argv)
 
 
@@ -52,6 +53,13 @@ def main(argv: list[str] | None = None) -> None:
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[attr-defined]
     logging.basicConfig(level=logging.INFO, stream=sys.stderr, format="%(levelname)s %(name)s: %(message)s")
     args = parse_args(argv)
+
+    if args.check:
+        import ctranslate2, edge_tts, faster_whisper, miniaudio  # noqa: E401, F401, I001
+        import soundcard  # noqa: F401
+
+        emit("check", ok=True, ctranslate2=ctranslate2.__version__, cuda=ctranslate2.get_cuda_device_count())
+        return
 
     from call_sketch_engine.audio import AudioCapture, PhraseChunker, default_sources, list_devices
 
@@ -81,6 +89,9 @@ def main(argv: list[str] | None = None) -> None:
 
     audio_q: queue.Queue = queue.Queue()
     sources = default_sources(not args.no_mic)
+    if not sources:
+        emit("error", msg="nenhum dispositivo de audio para ouvir (sem som do sistema e sem microfone)")
+        sys.exit(2)
     for who, dev, _name in sources:
         AudioCapture(who, dev, audio_q, PhraseChunker(max_sec=args.max_phrase), muted, stop).start()
     Transcriber(model, audio_q, args.language, on_text, stop).start()
