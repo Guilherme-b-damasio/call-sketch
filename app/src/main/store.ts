@@ -9,7 +9,7 @@ function hms(d = new Date()): string {
   return d.toTimeString().slice(0, 8)
 }
 
-export class Store extends EventEmitter<{ change: [AppState]; redraw: [] }> {
+export class Store extends EventEmitter<{ change: [AppState]; redraw: []; line: [] }> {
   private s: AppState
   private seq = 1_000_000 // ids das notas/validacoes (as falas usam os ids do motor)
   private timer: NodeJS.Timeout | null = null
@@ -50,6 +50,7 @@ export class Store extends EventEmitter<{ change: [AppState]; redraw: [] }> {
   addLine(line: Line): void {
     if (this.s.paused && line.who !== 'nota') return
     this.update({ lines: [...this.s.lines, line].slice(-MAX_LINES) })
+    if (line.who !== 'nota') this.emit('line') // nota ja pede redesenho na hora
   }
 
   addNote(text: string): void {

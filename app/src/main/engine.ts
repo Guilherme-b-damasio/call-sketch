@@ -40,7 +40,7 @@ export class Engine extends EventEmitter<{ event: [EngineEvent]; exit: [number |
 
   start(command: EngineCommand, s: Settings): void {
     this.stop()
-    const args = [...command.args, '--whisper', s.whisper, '--language', s.language]
+    const args = [...command.args, '--whisper', s.whisper, '--language', s.language, '--max-phrase', '8']
     if (!s.mic) args.push('--no-mic')
     const proc = spawn(command.cmd, args, {
       windowsHide: true,

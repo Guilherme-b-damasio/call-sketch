@@ -37,7 +37,7 @@ function say(text: string): void {
 }
 
 const sketcher = new Sketcher(store, {
-  every: () => settings.drawEvery,
+  gap: () => settings.drawGap,
   llm: getLLM,
   modes: () => modes,
   onModeChange: (m) => say(m.announce),

@@ -1,4 +1,4 @@
-/** Pede ao Claude o diagrama atualizado de tempos em tempos; troca de modo e anuncia. */
+/** Pede ao Claude o diagrama atualizado conforme a conversa anda; troca de modo e anuncia. */
 import { AUTO, type Line } from '@shared/types'
 import type { LLM } from './claude'
 import type { Mode } from './modes'
@@ -6,26 +6,36 @@ import { buildSystem, buildUser, parseResponse } from './prompts'
 import type { Store } from './store'
 
 export interface SketcherOptions {
-  every: () => number // segundos
+  /** Intervalo minimo entre o inicio de dois desenhos, em segundos (protege o limite do plano). */
+  gap: () => number
   llm: () => LLM
   modes: () => Map<string, Mode>
   onModeChange: (mode: Mode) => void
   /** Palavras faladas necessarias antes do primeiro desenho (evita desenhar um "oi" solto). */
   minWords?: number
+  /** Espera depois da ultima fala antes de desenhar, pra juntar frases seguidas (ms). */
+  settleMs?: number
 }
 
 const MIN_WORDS = 12
+const SETTLE_MS = 1200
 
 function words(lines: readonly Line[]): number {
   return lines.reduce((n, l) => n + l.text.split(/\s+/).filter(Boolean).length, 0)
 }
 
+/**
+ * Desenha guiado pela fala: cada frase nova agenda um desenho logo depois (com uma pequena espera
+ * pra juntar frases seguidas). Se o Claude ainda esta desenhando, o proximo sai assim que ele termina.
+ */
 export class Sketcher {
   private drawnUpto = 0
   private drawnMode: string
   private busy = false
   private timer: NodeJS.Timeout | null = null
-  private pending = false
+  private pending: boolean | null = null // null = nada pendente; true/false = forcado ou nao
+  private lastStart = 0
+  private running = false
 
   constructor(
     private readonly store: Store,
@@ -33,39 +43,44 @@ export class Sketcher {
   ) {
     this.drawnMode = store.state.activeMode
     store.on('redraw', () => this.requestNow())
+    store.on('line', () => this.running && this.request(false, opts.settleMs ?? SETTLE_MS))
   }
 
   start(): void {
-    this.schedule()
+    this.running = true
   }
 
   stop(): void {
+    this.running = false
     if (this.timer) clearTimeout(this.timer)
     this.timer = null
   }
 
   /** Desenha assim que possivel (botao, nota, troca de modo, erro de render). */
   requestNow(): void {
-    if (this.busy) {
-      this.pending = true
-      return
-    }
-    void this.tick(true)
+    this.request(true, 0)
   }
 
-  private schedule(): void {
-    this.stop()
-    this.timer = setTimeout(() => void this.tick(false), this.opts.every() * 1000)
+  private request(forced: boolean, delay: number): void {
+    if (this.busy) {
+      this.pending = (this.pending ?? false) || forced
+      return
+    }
+    const wait = forced ? 0 : Math.max(delay, this.lastStart + this.opts.gap() * 1000 - Date.now())
+    if (this.timer) clearTimeout(this.timer)
+    this.timer = setTimeout(() => {
+      this.timer = null
+      void this.tick(forced)
+    }, wait)
   }
 
   private async tick(forced: boolean): Promise<void> {
     try {
       await this.step(forced)
     } finally {
-      if (this.pending) {
-        this.pending = false
-        void this.tick(true)
-      } else this.schedule()
+      const next = this.pending
+      this.pending = null
+      if (next !== null) this.request(next, 0)
     }
   }
 
@@ -81,6 +96,7 @@ export class Sketcher {
     if (tooLittle && !forced) return false
 
     this.busy = true
+    this.lastStart = Date.now()
     this.store.setActivity('drawing')
     const modes = this.opts.modes()
     try {
@@ -98,6 +114,7 @@ export class Sketcher {
       if (s.mode !== AUTO || !chosen || !modes.has(chosen)) chosen = s.activeMode || null
       this.drawnUpto = s.lines.length
       this.store.setDiagram(code, chosen)
+      console.log(`[desenho] ${chosen ?? '-'} em ${Date.now() - this.lastStart}ms (${s.lines.length} falas)`)
       if (s.mode === AUTO && chosen && chosen !== this.drawnMode) this.opts.onModeChange(modes.get(chosen)!)
       this.drawnMode = chosen ?? ''
     } catch (e) {

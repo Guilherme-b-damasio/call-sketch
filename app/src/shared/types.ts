@@ -59,7 +59,7 @@ export interface Settings {
   backend: 'cli' | 'api'
   model: string // cli: sonnet|opus|haiku ; api: id do modelo
   apiKey: string
-  drawEvery: number // segundos
+  drawGap: number // segundos minimos entre dois desenhos
   checkEvery: number // segundos; 0 desliga
   voice: boolean
   voiceName: string
@@ -73,7 +73,7 @@ export const DEFAULT_SETTINGS: Settings = {
   backend: 'cli',
   model: 'sonnet',
   apiKey: '',
-  drawEvery: 20,
+  drawGap: 4,
   checkEvery: 30,
   voice: true,
   voiceName: 'pt-BR-AntonioNeural',

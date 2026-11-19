@@ -5,7 +5,12 @@ import { DEFAULT_SETTINGS, type Settings } from '@shared/types'
 
 export function loadSettings(file: string): Settings {
   try {
-    if (existsSync(file)) return { ...DEFAULT_SETTINGS, ...JSON.parse(readFileSync(file, 'utf-8')) }
+    if (existsSync(file)) {
+      const saved = JSON.parse(readFileSync(file, 'utf-8')) as Record<string, unknown>
+      // so as chaves conhecidas (versoes antigas tinham outras, como drawEvery)
+      const known = Object.fromEntries(Object.entries(saved).filter(([k]) => k in DEFAULT_SETTINGS))
+      return { ...DEFAULT_SETTINGS, ...known }
+    }
   } catch (e) {
     console.error('configuracoes invalidas, usando o padrao:', e)
   }

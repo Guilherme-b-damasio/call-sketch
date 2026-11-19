@@ -31,7 +31,7 @@ function sketcher(reply: string, mode = AUTO) {
   const llm = new FakeLLM(reply)
   const announced: string[] = []
   const modes = loadModes(BUILTIN)
-  const sk = new Sketcher(store, { every: () => 20, llm: () => llm, modes: () => modes, onModeChange: (m) => announced.push(m.id), minWords: 0 })
+  const sk = new Sketcher(store, { gap: () => 0, llm: () => llm, modes: () => modes, onModeChange: (m) => announced.push(m.id), minWords: 0 })
   return { sk, store, llm, announced }
 }
 
@@ -143,11 +143,72 @@ describe('desenhista', () => {
     const store = new Store()
     const llm = new FakeLLM('MODO: processo\n```mermaid\nflowchart TD\n A-->B\n```')
     const modes = loadModes(BUILTIN)
-    const sk = new Sketcher(store, { every: () => 20, llm: () => llm, modes: () => modes, onModeChange: () => {} })
+    const sk = new Sketcher(store, { gap: () => 0, llm: () => llm, modes: () => modes, onModeChange: () => {} })
     store.addLine(line('call', 'Tchau!'))
     expect(await sk.step()).toBe(false)
     store.addLine(line('call', 'primeiro o pedido entra na fila e depois o worker processa e grava no banco'))
     expect(await sk.step()).toBe(true)
+  })
+})
+
+describe('desenho guiado pela fala', () => {
+  const REPLY = '```mermaid\nflowchart TD\n A-->B\n```'
+
+  function live(gap = 0) {
+    vi.useFakeTimers()
+    const store = new Store()
+    let release: () => void = () => {}
+    const llm = new FakeLLM(REPLY)
+    const ask = vi.spyOn(llm, 'ask').mockImplementation(async (system, user) => {
+      llm.calls.push({ system, user })
+      await new Promise<void>((r) => (release = r))
+      return REPLY
+    })
+    const modes = loadModes(BUILTIN)
+    const sk = new Sketcher(store, { gap: () => gap, llm: () => llm, modes: () => modes, onModeChange: () => {}, minWords: 0, settleMs: 1000 })
+    sk.start()
+    return { store, llm, ask, finish: () => release() }
+  }
+
+  it('fala nova desenha logo depois de uma pausa curta', async () => {
+    const { store, llm } = live()
+    store.addLine(line('call', 'o gateway chama o auth'))
+    await vi.advanceTimersByTimeAsync(900)
+    expect(llm.calls).toHaveLength(0)
+    store.addLine(line('call', 'e depois o backend')) // junta frases seguidas
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(llm.calls).toHaveLength(1)
+    vi.useRealTimers()
+  })
+
+  it('falas durante o desenho viram um unico desenho logo em seguida', async () => {
+    const { store, llm, finish } = live()
+    store.addLine(line('call', 'um'))
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(llm.calls).toHaveLength(1)
+    store.addLine(line('call', 'dois'))
+    store.addLine(line('call', 'tres'))
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(llm.calls).toHaveLength(1) // ainda desenhando
+    finish()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(llm.calls).toHaveLength(2)
+    expect(llm.calls[1].user).toContain('tres')
+    vi.useRealTimers()
+  })
+
+  it('respeita o intervalo minimo entre desenhos', async () => {
+    const { store, llm, finish } = live(10)
+    store.addLine(line('call', 'um'))
+    await vi.advanceTimersByTimeAsync(1000)
+    finish()
+    await vi.advanceTimersByTimeAsync(0)
+    store.addLine(line('call', 'dois'))
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(llm.calls).toHaveLength(1)
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(llm.calls).toHaveLength(2)
+    vi.useRealTimers()
   })
 })
 

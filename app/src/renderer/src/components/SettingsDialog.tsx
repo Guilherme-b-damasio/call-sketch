@@ -183,18 +183,18 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
                     </Field>
                   </>
                 )}
-                <Field label="Redesenhar a cada" hint="Só redesenha se tiver fala nova.">
+                <Field label="Intervalo mínimo" hint="Ele redesenha a cada fala nova. Aumente para gastar menos do seu plano.">
                   <div className="flex items-center gap-2">
                     <input
                       type="range"
-                      min={10}
-                      max={90}
-                      step={5}
-                      value={s.drawEvery}
-                      onChange={(e) => set('drawEvery', Number(e.target.value))}
+                      min={0}
+                      max={60}
+                      step={2}
+                      value={s.drawGap}
+                      onChange={(e) => set('drawGap', Number(e.target.value))}
                       className="flex-1 accent-accent-600"
                     />
-                    <span className="w-10 text-right text-[13px] tabular-nums text-zinc-500">{s.drawEvery}s</span>
+                    <span className="w-10 text-right text-[13px] tabular-nums text-zinc-500">{s.drawGap}s</span>
                   </div>
                 </Field>
                 <Field label="Validar a cada" hint="0 desliga o segundo Claude que confere o que foi dito.">
