@@ -44,7 +44,7 @@ export function Toasts({ error, speaking }: { error: string | null; speaking: st
           >
             <TriangleExclamationPoint className="mt-0.5 size-4 shrink-0 text-rose-500" />
             <div className="min-w-0 text-[13px]">
-              <p className="font-medium text-zinc-800 dark:text-zinc-100">O Claude não respondeu</p>
+              <p className="font-medium text-zinc-800 dark:text-zinc-100">A IA não respondeu</p>
               <p className="line-clamp-2 text-zinc-500 dark:text-zinc-400">{error}</p>
               {tip && <p className="mt-1 font-medium text-accent-600 dark:text-accent-300">{tip}</p>}
             </div>

@@ -11,7 +11,7 @@ interface Props {
 }
 
 export const ModeBar = memo(function ModeBar({ modes, mode, activeMode }: Props) {
-  const all = [{ id: AUTO, name: 'Automático', description: 'O Claude escolhe pelo assunto da conversa' }, ...modes]
+  const all = [{ id: AUTO, name: 'Automático', description: 'A IA escolhe pelo assunto da conversa' }, ...modes]
   return (
     <nav
       aria-label="Modo de desenho"

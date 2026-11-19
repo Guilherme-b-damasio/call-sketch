@@ -108,7 +108,7 @@ function Checks({ checks, checking }: { checks: Check[]; checking: boolean }) {
       {checks.length === 0 ? (
         <Empty
           icon={<ShieldCheck className="size-5" />}
-          text={checking ? 'Conferindo o que foi dito…' : 'Nada suspeito até agora. Um segundo Claude confere as afirmações da conversa.'}
+          text={checking ? 'Conferindo o que foi dito…' : 'Nada suspeito até agora. Uma segunda IA confere as afirmações da conversa.'}
         />
       ) : (
         <ul className="space-y-2">
