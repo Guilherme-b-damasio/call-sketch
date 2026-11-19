@@ -1,17 +1,14 @@
-/** Backends do Claude: o Claude Code logado de cada pessoa (assinatura) ou uma API key. */
+/** Backends: o Claude Code logado de cada pessoa (assinatura), uma chave da Anthropic ou outra IA no formato da OpenAI. */
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import Anthropic from '@anthropic-ai/sdk'
-import type { Settings } from '@shared/types'
+import { LLM_PRESETS, type Settings } from '@shared/types'
+import { type LLM, LLMError } from './llm'
+import { OpenAICompat } from './openai'
 
-export interface LLM {
-  readonly name: string
-  ask(system: string, user: string): Promise<string>
-}
-
-export class LLMError extends Error {}
+export { type LLM, LLMError }
 
 /** Acha o executavel do Claude Code. No Windows o `claude` do npm e um .cmd que chama um .exe. */
 export function findClaude(env: NodeJS.ProcessEnv = process.env): string | null {
@@ -99,6 +96,12 @@ export class ClaudeAPI implements LLM {
 }
 
 export function makeLLM(s: Settings): LLM {
+  if (s.backend === 'openai') {
+    if (!s.llmUrl.trim()) throw new LLMError('Falta o endereço da IA nas configurações.')
+    if (!s.llmModel.trim()) throw new LLMError('Escolha um modelo da IA nas configurações.')
+    const preset = LLM_PRESETS.find((p) => p.id === s.llmPreset && p.id !== 'custom')
+    return new OpenAICompat(s.llmUrl, s.llmKey, s.llmModel.trim(), preset?.name)
+  }
   if (s.backend === 'api') return new ClaudeAPI(s.apiKey, s.model.startsWith('claude-') ? s.model : 'claude-opus-5-5')
   const bin = findClaude()
   if (!bin) throw new LLMError('Claude Code nao encontrado. Instale com: npm i -g @anthropic-ai/claude-code')

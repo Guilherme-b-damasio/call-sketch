@@ -1,7 +1,7 @@
-import { FolderOpen, X } from 'lucide-react'
+import { CircleCheck, CircleX, ExternalLink, FolderOpen, LoaderCircle, RefreshCw, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useState } from 'react'
-import { type Settings, VOICES } from '@shared/types'
+import { LLM_PRESETS, type LLMTest, type Settings, VOICES } from '@shared/types'
 import { api } from '../hooks'
 import { cx } from './ui'
 
@@ -70,6 +70,160 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: 
         className={cx('absolute top-0.5 size-4 rounded-full bg-white shadow', checked ? 'right-0.5' : 'left-0.5')}
       />
     </button>
+  )
+}
+
+/** Outra IA no formato da OpenAI: provedor, endereco, chave, modelo e um teste de conexao. */
+function OtherAI({ s, setS }: { s: Settings; setS: (s: Settings) => void }) {
+  const preset = LLM_PRESETS.find((p) => p.id === s.llmPreset) ?? LLM_PRESETS[LLM_PRESETS.length - 1]
+  const [models, setModels] = useState<string[]>([])
+  const [listing, setListing] = useState(false)
+  const [listError, setListError] = useState<string | null>(null)
+  const [testing, setTesting] = useState(false)
+  const [test, setTest] = useState<LLMTest | null>(null)
+  const set = <K extends keyof Settings>(k: K, v: Settings[K]) => {
+    setTest(null)
+    setS({ ...s, [k]: v })
+  }
+
+  const list = async (quiet: boolean) => {
+    setListing(true)
+    try {
+      setModels(await api.listModels(s))
+      setListError(null)
+    } catch (e) {
+      setModels([])
+      if (!quiet) setListError(String(e instanceof Error ? e.message : e).replace(/^Error invoking remote method '[^']+': (\w*Error: )?/, ''))
+    } finally {
+      setListing(false)
+    }
+  }
+
+  // lista os modelos sozinho quando ja da pra perguntar (sem chave ou com a chave colada)
+  const canList = !!s.llmUrl.trim() && (!preset.needsKey || !!s.llmKey.trim())
+  // biome-ignore lint/correctness/useExhaustiveDependencies: so quando muda provedor, endereco ou chave
+  useEffect(() => {
+    setModels([])
+    setListError(null)
+    if (!canList) return
+    const t = setTimeout(() => void list(true), 500)
+    return () => clearTimeout(t)
+  }, [s.llmUrl, s.llmKey, canList])
+
+  const runTest = async () => {
+    setTesting(true)
+    setTest(null)
+    try {
+      setTest(await api.testLLM(s))
+    } finally {
+      setTesting(false)
+    }
+  }
+
+  return (
+    <>
+      <Field label="Provedor" hint={preset.hint}>
+        <Select
+          value={preset.id}
+          options={LLM_PRESETS}
+          onChange={(id) => {
+            const p = LLM_PRESETS.find((x) => x.id === id)!
+            setTest(null)
+            setS({ ...s, llmPreset: p.id, llmUrl: p.url, llmModel: p.model, llmKey: '' })
+          }}
+        />
+      </Field>
+      <Field label="Endereço">
+        <input
+          value={s.llmUrl}
+          onChange={(e) => set('llmUrl', e.target.value)}
+          placeholder="http://localhost:11434/v1"
+          spellCheck={false}
+          className={inputCls}
+        />
+      </Field>
+      {(preset.needsKey || preset.id === 'custom') && (
+        <Field label="Chave" hint={preset.needsKey ? 'Fica salva só neste computador.' : 'Opcional.'}>
+          <div className="flex items-center gap-2">
+            <input
+              type="password"
+              value={s.llmKey}
+              onChange={(e) => set('llmKey', e.target.value)}
+              placeholder="cole a chave aqui"
+              className={inputCls}
+            />
+            {preset.keyUrl && (
+              <a
+                href={preset.keyUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex shrink-0 items-center gap-1 text-[12px] font-medium text-accent-600 hover:underline dark:text-accent-300"
+              >
+                pegar chave <ExternalLink className="size-3" />
+              </a>
+            )}
+          </div>
+        </Field>
+      )}
+      <Field
+        label="Modelo"
+        hint={
+          listError ??
+          (models.length
+            ? `${models.length} modelos disponíveis. Digite para filtrar.`
+            : 'Escreva o nome ou clique em listar para ver os que existem.')
+        }
+      >
+        <div className="flex items-center gap-2">
+          <input
+            value={s.llmModel}
+            onChange={(e) => set('llmModel', e.target.value)}
+            list="llm-models"
+            placeholder="nome do modelo"
+            spellCheck={false}
+            className={inputCls}
+          />
+          <datalist id="llm-models">
+            {models.map((m) => (
+              <option key={m} value={m} />
+            ))}
+          </datalist>
+          <button
+            type="button"
+            title="Listar os modelos do provedor"
+            onClick={() => void list(false)}
+            disabled={listing || !s.llmUrl.trim()}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-[13px] font-medium hover:bg-zinc-900/5 disabled:opacity-50 dark:border-white/10 dark:hover:bg-white/6"
+          >
+            <RefreshCw className={cx('size-3.5', listing && 'animate-spin')} /> Listar
+          </button>
+        </div>
+      </Field>
+      <Field label="Teste">
+        <div className="flex flex-col gap-1.5">
+          <button
+            type="button"
+            onClick={() => void runTest()}
+            disabled={testing || !s.llmUrl.trim() || !s.llmModel.trim()}
+            className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-zinc-200 px-2.5 py-1.5 text-[13px] font-medium hover:bg-zinc-900/5 disabled:opacity-50 dark:border-white/10 dark:hover:bg-white/6"
+          >
+            {testing ? <LoaderCircle className="size-3.5 animate-spin" /> : <CircleCheck className="size-3.5" />}
+            {testing ? 'Testando…' : 'Testar'}
+          </button>
+          {test && (
+            <span
+              className={cx(
+                'inline-flex items-start gap-1.5 text-[12px] leading-snug',
+                test.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400',
+              )}
+            >
+              {test.ok ? <CircleCheck className="mt-px size-3.5 shrink-0" /> : <CircleX className="mt-px size-3.5 shrink-0" />}
+              {test.msg}
+            </span>
+          )}
+        </div>
+      </Field>
+    </>
   )
 }
 
@@ -145,25 +299,32 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
             </header>
 
             <div className="space-y-6 overflow-y-auto px-5 py-5">
-              <Section title="Claude">
+              <Section title="Inteligência artificial">
                 <Field
                   label="Conexão"
                   hint={
                     s.backend === 'cli'
                       ? 'Usa o Claude Code logado na sua conta (sem custo extra). Se pedir login, rode "claude" no terminal e digite /login.'
-                      : 'Usa uma chave da API da Anthropic (cobrado por uso).'
+                      : s.backend === 'api'
+                        ? 'Usa uma chave da API da Anthropic (cobrado por uso).'
+                        : 'Qualquer IA no formato da OpenAI: um modelo no seu PC (grátis) ou a sua chave de um provedor.'
                   }
                 >
                   <Select
                     value={s.backend}
                     options={[
                       { id: 'cli', name: 'Minha assinatura (Claude Code)' },
-                      { id: 'api', name: 'Chave de API' },
+                      { id: 'api', name: 'Chave da Anthropic' },
+                      { id: 'openai', name: 'Outra IA (Ollama, Groq, Gemini, OpenAI…)' },
                     ]}
-                    onChange={(v) => setS({ ...s, backend: v, model: v === 'cli' ? 'sonnet' : 'claude-opus-5-5' })}
+                    onChange={(v) =>
+                      setS({ ...s, backend: v, model: v === 'cli' ? 'sonnet' : v === 'api' ? 'claude-opus-5-5' : s.model })
+                    }
                   />
                 </Field>
-                {s.backend === 'cli' ? (
+                {s.backend === 'openai' ? (
+                  <OtherAI s={s} setS={setS} />
+                ) : s.backend === 'cli' ? (
                   <Field label="Modelo">
                     <Select value={s.model} options={CLI_MODELS} onChange={(v) => set('model', v)} />
                   </Field>
@@ -197,7 +358,7 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
                     <span className="w-10 text-right text-[13px] tabular-nums text-zinc-500">{s.drawGap}s</span>
                   </div>
                 </Field>
-                <Field label="Validar a cada" hint="0 desliga o segundo Claude que confere o que foi dito.">
+                <Field label="Validar a cada" hint="0 desliga a segunda IA que confere o que foi dito.">
                   <div className="flex items-center gap-2">
                     <input
                       type="range"

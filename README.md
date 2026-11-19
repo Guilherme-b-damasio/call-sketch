@@ -2,7 +2,7 @@
 
 Ouve a conversa (Discord, Meet, Zoom, qualquer áudio que sai do PC, mais o seu microfone), transcreve no seu PC com Whisper, e o **Claude transforma as falas em diagramas ao vivo**. Quando escolhe ou troca de modo, ele avisa em voz. Um segundo Claude confere as afirmações técnicas e aponta o que estiver errado.
 
-Cada pessoa roda no próprio PC e usa **o próprio Claude**: o login da assinatura no Claude Code (padrão, sem custo de API) ou uma API key própria.
+Cada pessoa roda no próprio PC e usa **a própria IA**: o login da assinatura no Claude Code (padrão, sem custo de API), uma chave da Anthropic ou [outra IA](#outras-ias), inclusive um modelo grátis rodando no próprio PC.
 
 ## Modos
 
@@ -67,9 +67,23 @@ O app acha o motor em `engine/.venv` sozinho. Tudo o mais fica em Configuraçõe
 
 **Uso do plano:** o desenho e a validação usam o seu limite do Claude. Se apertar, aumente os intervalos nas configurações.
 
+### Outras IAs
+
+Em Configurações, **Conexão → Outra IA** aceita qualquer serviço no formato da API da OpenAI. Escolha o provedor, cole a chave (se ele pedir), clique em **Listar** para ver os modelos e em **Testar** antes de salvar.
+
+| Provedor | Custo | Observação |
+|---|---|---|
+| Ollama / LM Studio | grátis, offline | roda no seu PC; com GPU fica rápido, só na CPU pode levar 10 a 20s por desenho |
+| Groq | plano grátis | muito rápido |
+| Google Gemini | plano grátis | chave no Google AI Studio |
+| OpenRouter | grátis e pago | muitos modelos com uma chave só |
+| OpenAI, DeepSeek, Mistral... | na sua conta | DeepSeek e Mistral pelo "Outro endereço" |
+
+Modelos pequenos (7 ou 8B) erram o Mermaid com mais frequência. Quando o desenho não renderiza, o app manda o erro de volta para a IA corrigir. Com Ollama, `qwen2.5:7b` é um bom começo; com GPU boa, tente um de 14B ou mais.
+
 ## Instalador (para quem não programa)
 
-Baixe na página de [Releases](https://github.com/Guilherme-b-damasio/call-sketch/releases): Windows (`.exe`), macOS Apple Silicon (`.dmg`) e Linux (`.deb` e `.AppImage`). As instruções de cada sistema estão na release. Quem instala ainda precisa do Claude Code logado (ou de uma chave de API).
+Baixe na página de [Releases](https://github.com/Guilherme-b-damasio/call-sketch/releases): Windows (`.exe`), macOS Apple Silicon (`.dmg`) e Linux (`.deb` e `.AppImage`). As instruções de cada sistema estão na release. Quem instala ainda precisa de uma IA: o Claude Code logado, uma chave de API ou um modelo local (veja [Outras IAs](#outras-ias)).
 
 **macOS:** não existe captura nativa do som do sistema. Instale o [BlackHole](https://existential.audio/blackhole/) e crie um dispositivo de saída múltipla com os alto-falantes + BlackHole; o app acha o BlackHole sozinho.
 
