@@ -125,6 +125,23 @@ describe('desenhista', () => {
     expect(llm.calls).toHaveLength(1)
   })
 
+  it('limpar no meio de um desenho descarta a resposta atrasada', async () => {
+    const { sk, store, llm } = sketcher('')
+    let answer!: () => void
+    llm.ask = async () => {
+      await new Promise<void>((r) => (answer = r))
+      return '```mermaid\nflowchart TD\n Velho-->Desenho\n```'
+    }
+    store.addLine(line('call', 'primeiro valida, depois salva'))
+    const drawing = sk.step()
+    await vi.waitFor(() => expect(answer).toBeTypeOf('function'))
+    store.reset()
+    answer()
+    await drawing
+    expect(store.state.mermaid).toBe('')
+    expect(store.state.lines).toEqual([])
+  })
+
   it('nota do usuario dispara um desenho na hora', async () => {
     const { store, llm } = sketcher('```mermaid\nflowchart TD\n A-->B\n```')
     store.addNote('desenha um fluxo')

@@ -32,8 +32,10 @@ export class Validator {
     if (s.lines.length === this.checkedUpto) return false
     this.busy = true
     try {
+      const epoch = this.store.resetCount
       const given = s.checks.slice(-15).map((c) => c.text)
       const out = await this.llm().ask(CHECK_PROMPT, buildCheckUser(s.lines.slice(-60), given))
+      if (this.store.resetCount !== epoch) return true // limparam no meio: notas da conversa antiga
       this.checkedUpto = s.lines.length
       const notes = parseChecks(out)
       if (notes.length) this.store.addChecks(notes)
