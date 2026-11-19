@@ -2,6 +2,7 @@ import { Cpu, Pause, PencilLine, PictureInPicture2, Play, Radio, RefreshCw, Sett
 import { AnimatePresence, motion } from 'motion/react'
 import type { AppState } from '@shared/types'
 import { api } from '../hooks'
+import { LogoMark } from './Logo'
 import { cx, IconButton, SoundBars } from './ui'
 
 function StatusPill({ state }: { state: AppState }) {
@@ -55,20 +56,36 @@ function StatusPill({ state }: { state: AppState }) {
 
 interface TitleBarProps {
   state: AppState
+  brand?: boolean // falso durante a abertura: o icone e o nome chegam voando dela
   onSettings: () => void
   onSession: () => void
 }
 
-export function TitleBar({ state, onSettings, onSession }: TitleBarProps) {
+export function TitleBar({ state, brand = true, onSettings, onSession }: TitleBarProps) {
   const sharing = state.share.state === 'on' || state.share.state === 'starting'
   const device = state.engine.device
   return (
     <header className="drag flex h-12 shrink-0 items-center gap-3 border-b border-zinc-200/80 pl-4 pr-[150px] dark:border-white/6">
       <div className="flex items-center gap-2">
-        <span className="grid size-6 place-items-center rounded-md bg-gradient-to-br from-accent-400 to-accent-600 text-white shadow-sm shadow-accent-600/30">
-          <PencilLine className="size-3.5" strokeWidth={2.5} />
-        </span>
-        <span className="text-sm font-semibold tracking-tight">Call Sketch</span>
+        {brand ? (
+          <>
+            <motion.span layoutId="app-logo" className="block size-6" transition={{ type: 'spring', stiffness: 260, damping: 30 }}>
+              <LogoMark className="size-full drop-shadow-sm" />
+            </motion.span>
+            <motion.span
+              layoutId="app-name"
+              className="block text-sm font-semibold tracking-tight"
+              transition={{ type: 'spring', stiffness: 260, damping: 30 }}
+            >
+              Call Sketch
+            </motion.span>
+          </>
+        ) : (
+          <span className="invisible flex items-center gap-2" aria-hidden>
+            <span className="size-6" />
+            <span className="text-sm font-semibold tracking-tight">Call Sketch</span>
+          </span>
+        )}
       </div>
 
       <span className="h-4 w-px bg-zinc-200 dark:bg-white/10" />

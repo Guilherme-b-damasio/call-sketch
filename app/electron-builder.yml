@@ -2,6 +2,8 @@ appId: dev.callsketch.app
 productName: Call Sketch
 directories:
   output: dist
+  # icon.png (1024x1024, gerado do icon.svg) vira o .ico do Windows, o .icns do mac e o icone do Linux
+  buildResources: build
 files:
   - out/**
   - package.json
