@@ -7,7 +7,15 @@ const shared = { '@shared': resolve('src/shared') }
 
 export default defineConfig({
   main: { resolve: { alias: shared } },
-  preload: { resolve: { alias: shared } },
+  preload: {
+    resolve: { alias: shared },
+    build: {
+      rollupOptions: {
+        // app (index) + janela de quem assiste uma sessao (viewer: so o botao de flutuar)
+        input: { index: resolve('src/preload/index.ts'), viewer: resolve('src/preload/viewer.ts') },
+      },
+    },
+  },
   renderer: {
     resolve: { alias: { ...shared, '@': resolve('src/renderer/src') } },
     plugins: [react(), tailwindcss()],
