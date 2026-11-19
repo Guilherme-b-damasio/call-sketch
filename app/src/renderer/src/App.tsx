@@ -3,6 +3,7 @@ import { Canvas } from './components/Canvas'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { ModeBar } from './components/ModeBar'
 import { Overlay } from './components/Overlay'
+import { SessionDialog } from './components/SessionDialog'
 import { SettingsDialog } from './components/SettingsDialog'
 import { SidePanel } from './components/SidePanel'
 import { TitleBar } from './components/TitleBar'
@@ -15,6 +16,9 @@ export function App() {
   const [settings, setSettings] = useState(false)
   const openSettings = useCallback(() => setSettings(true), [])
   const closeSettings = useCallback(() => setSettings(false), [])
+  const [session, setSession] = useState(false)
+  const openSession = useCallback(() => setSession(true), [])
+  const closeSession = useCallback(() => setSession(false), [])
 
   if (!state) return null
   if (api.isOverlay)
@@ -26,7 +30,7 @@ export function App() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
-      <TitleBar state={state} onSettings={openSettings} />
+      <TitleBar state={state} onSettings={openSettings} onSession={openSession} />
       <ModeBar modes={modes} mode={state.mode} activeMode={state.activeMode} />
       <main className="flex min-h-0 flex-1">
         <section className="relative min-w-0 flex-1">
@@ -40,6 +44,7 @@ export function App() {
         </ErrorBoundary>
       </main>
       <SettingsDialog open={settings} onClose={closeSettings} />
+      <SessionDialog open={session} share={state.share} onClose={closeSession} />
     </div>
   )
 }

@@ -38,3 +38,8 @@ linux:
   category: Office
   maintainer: Guilherme-b-damasio <Guilherme-b-damasio@users.noreply.github.com>
   synopsis: Transforma as falas da call em diagramas ao vivo com o Claude
+
+# links callsketch://join?url=... abrem a sessao no app instalado
+protocols:
+  - name: Call Sketch
+    schemes: [callsketch]
