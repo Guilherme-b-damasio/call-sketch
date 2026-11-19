@@ -32,7 +32,7 @@ claude.cmd          # uma vez: /login com a sua conta, depois /exit
 ```
 
 ```powershell
-git clone <repo> call-sketch; cd call-sketch
+git clone git@github.com:Guilherme-b-damasio/call-sketch.git; cd call-sketch
 python -m venv .venv
 .venv\Scripts\python -m pip install -e ".[gpu]"     # sem placa NVIDIA, tire o [gpu]
 ```
