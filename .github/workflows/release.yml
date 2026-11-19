@@ -1,17 +1,37 @@
 name: release
 
-# Gera os instaladores de Windows, macOS e Linux. Num tag v*, publica a release com eles.
+# Gera os instaladores de Windows, macOS e Linux e anexa direto na release do tag.
+# Nao usa artefatos do Actions (o plano gratuito tem so 0,5 GB e os instaladores passam disso).
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag da release que recebe os arquivos (ex: v0.3.0)'
+        required: true
 
 permissions:
   contents: write
 
+env:
+  TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
+  GH_TOKEN: ${{ github.token }}
+
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: cria a release se ainda nao existir
+        run: |
+          if ! gh release view "$TAG" > /dev/null 2>&1; then
+            gh release create "$TAG" --verify-tag --title "Call Sketch $TAG" --notes-file .github/release-notes.md
+          fi
+
   build:
     name: build (${{ matrix.dist }})
+    needs: prepare
     strategy:
       fail-fast: false
       matrix:
@@ -23,6 +43,9 @@ jobs:
           - os: ubuntu-22.04 # glibc mais antiga = roda em mais distros
             dist: linux
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
 
@@ -61,37 +84,11 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: callsketch-${{ matrix.dist }}
-          if-no-files-found: error
-          path: |
-            app/dist/*.exe
-            app/dist/*.dmg
-            app/dist/*.AppImage
-            app/dist/*.deb
-
-  release:
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          path: dist
-          merge-multiple: true
-      - name: publica a release
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: anexa na release
+        working-directory: app/dist
         run: |
-          ls -la dist
-          # se a release ja existe (ex: criada a mao com so um sistema), so acrescenta/troca os arquivos
-          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
-            gh release edit "$GITHUB_REF_NAME" --notes-file .github/release-notes.md
-          else
-            gh release create "$GITHUB_REF_NAME" dist/* \
-              --title "Call Sketch $GITHUB_REF_NAME" \
-              --notes-file .github/release-notes.md
-          fi
+          shopt -s nullglob
+          files=(*.exe *.dmg *.AppImage *.deb)
+          [ ${#files[@]} -gt 0 ] || { echo "nenhum instalador gerado"; exit 1; }
+          ls -la "${files[@]}"
+          gh release upload "$TAG" "${files[@]}" --clobber
