@@ -89,6 +89,8 @@ def main(argv: list[str] | None = None) -> None:
     emit("ready", device=device, sources=[{"who": w, "name": n} for w, _, n in sources])
 
     for raw in sys.stdin:  # termina quando o app fecha o stdin (ou morre)
+        if not raw.strip():
+            continue
         try:
             cmd = json.loads(raw)
         except json.JSONDecodeError:

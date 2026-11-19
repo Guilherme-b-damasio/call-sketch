@@ -42,6 +42,30 @@ def load_whisper(size: str = "auto", language: str = "pt"):
         return WhisperModel("small" if size == "auto" else size, device="cpu", compute_type="int8"), "cpu"
 
 
+# frases que o Whisper "ouve" em silencio ou ruido (vem das legendas com que ele foi treinado)
+_PHANTOMS = {
+    "tchau", "tchau tchau", "obrigado", "obrigada", "obrigado por assistir", "obrigada por assistir",
+    "valeu", "e ai", "legendas pela comunidade amara.org", "legenda adriana zanotto", "inscreva-se",
+    "thank you", "thanks for watching", "you", "bye",
+}
+
+
+def _norm(text: str) -> str:
+    keep = "".join(c for c in text.lower() if c.isalnum() or c in " .-")
+    return " ".join(keep.replace("!", "").split()).strip(" .")
+
+
+def is_phantom(text: str) -> bool:
+    """True para frases curtas tipicas de alucinacao do Whisper."""
+    n = _norm(text)
+    return not n or n in _PHANTOMS or ("amara.org" in n)
+
+
+def keep_segment(no_speech_prob: float, avg_logprob: float) -> bool:
+    """Descarta segmentos que o proprio modelo acha que nao sao fala (ou que chutou)."""
+    return not (no_speech_prob > 0.6 and avg_logprob < -0.5) and avg_logprob > -1.2
+
+
 class Transcriber(threading.Thread):
     def __init__(self, model, audio_q: queue.Queue, language: str,
                  on_text: Callable[[str, str], None], stop: threading.Event) -> None:
@@ -56,10 +80,14 @@ class Transcriber(threading.Thread):
             except queue.Empty:
                 continue
             try:
-                segs, _ = self.model.transcribe(audio, language=self.language, vad_filter=True)
-                text = " ".join(s.text.strip() for s in segs).strip()
+                segs, _ = self.model.transcribe(
+                    audio, language=self.language, vad_filter=True, condition_on_previous_text=False
+                )
+                text = " ".join(
+                    s.text.strip() for s in segs if keep_segment(s.no_speech_prob, s.avg_logprob)
+                ).strip()
             except Exception:
                 log.exception("erro na transcricao")
                 continue
-            if text:
+            if text and not is_phantom(text):
                 self.on_text(who, text)
