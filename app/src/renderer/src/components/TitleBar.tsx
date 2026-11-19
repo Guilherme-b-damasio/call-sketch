@@ -1,5 +1,6 @@
-import { Cpu, Pause, PencilLine, PictureInPicture2, Play, Radio, RefreshCw, Settings, Zap } from 'lucide-react'
+import { Cpu, Eraser, Pause, PencilLine, PictureInPicture2, Play, Radio, RefreshCw, Settings, Zap } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
+import { useEffect, useState } from 'react'
 import type { AppState } from '@shared/types'
 import { api } from '../hooks'
 import { LogoMark } from './Logo'
@@ -118,6 +119,7 @@ export function TitleBar({ state, brand = true, onSettings, onSession }: TitleBa
         >
           <RefreshCw className={cx('size-4', state.activity === 'drawing' && 'animate-spin')} />
         </IconButton>
+        <ClearButton empty={!state.mermaid && !state.lines.length && !state.checks.length} />
         <IconButton label="Janela flutuante" shortcut="Ctrl+Shift+O" onClick={() => void api.toggleOverlay()}>
           <PictureInPicture2 className="size-4" />
         </IconButton>
@@ -146,5 +148,30 @@ export function TitleBar({ state, brand = true, onSettings, onSession }: TitleBa
         </IconButton>
       </div>
     </header>
+  )
+}
+
+/** Limpa o desenho, a conversa e as notas. Pede um segundo clique para nao apagar sem querer. */
+function ClearButton({ empty }: { empty: boolean }) {
+  const [armed, setArmed] = useState(false)
+  useEffect(() => {
+    if (!armed) return
+    const t = setTimeout(() => setArmed(false), 3000)
+    return () => clearTimeout(t)
+  }, [armed])
+  return (
+    <IconButton
+      label={armed ? 'Clique de novo para apagar o desenho e a conversa' : 'Limpar desenho e conversa'}
+      disabled={empty && !armed}
+      onClick={() => {
+        if (!armed) return setArmed(true)
+        setArmed(false)
+        void api.reset()
+      }}
+      className={cx(armed && '!flex !w-auto items-center gap-1.5 !bg-rose-500/12 px-2 !text-rose-600 dark:!text-rose-400')}
+    >
+      <Eraser className="size-4" />
+      {armed && <span className="text-xs font-medium">Limpar?</span>}
+    </IconButton>
   )
 }

@@ -11,6 +11,7 @@ function hms(d = new Date()): string {
 
 export class Store extends EventEmitter<{ change: [AppState]; redraw: []; line: [] }> {
   private s: AppState
+  private resets = 0
   private seq = 1_000_000 // ids das notas/validacoes (as falas usam os ids do motor)
   private timer: NodeJS.Timeout | null = null
 
@@ -115,7 +116,13 @@ export class Store extends EventEmitter<{ change: [AppState]; redraw: []; line: 
     this.update({ share: { ...this.s.share, ...share } })
   }
 
+  /** Muda a cada limpeza: quem pediu algo a IA antes dela descarta a resposta. */
+  get resetCount(): number {
+    return this.resets
+  }
+
   reset(): void {
+    this.resets++
     this.update({
       lines: [],
       checks: [],

@@ -99,6 +99,7 @@ export class Sketcher {
     this.lastStart = Date.now()
     this.store.setActivity('drawing')
     const modes = this.opts.modes()
+    const epoch = this.store.resetCount
     try {
       const out = await this.opts.llm().ask(
         buildSystem(modes, s.mode),
@@ -110,6 +111,7 @@ export class Sketcher {
           modeChanged,
         }),
       )
+      if (this.store.resetCount !== epoch) return true // limparam enquanto desenhava: o desenho velho nao volta
       let [chosen, code] = parseResponse(out)
       if (s.mode !== AUTO || !chosen || !modes.has(chosen)) chosen = s.activeMode || null
       this.drawnUpto = s.lines.length
