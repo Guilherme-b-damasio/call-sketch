@@ -18,13 +18,25 @@ Cada pessoa roda no próprio PC e usa **o próprio Claude**: o login da assinatu
 | `planejamento` | linha do tempo | roadmap, fases, sprints |
 | `decisao` | opções com prós e contras | escolher entre alternativas |
 
-O modo pode ser trocado na página durante a conversa.
+O modo pode ser trocado na barra do app durante a conversa.
 
-**Modos próprios:** crie uma pasta com arquivos `.md` (veja os de `src/call_sketch/modes/`) e rode com `--modes-dir pasta`. Um arquivo com o mesmo nome de um modo padrão substitui esse modo.
+**Modos próprios:** em Configurações → Modos → *Abrir pasta*, crie um `.md` no formato dos que estão em `app/resources/modes/`. Um arquivo com o mesmo nome de um modo padrão substitui esse modo.
 
-## Instalação
+## Como é
 
-Requisitos: Python 3.11+, Node.js (para o Claude Code) e Windows. No Linux deve funcionar, mas não foi testado. No macOS é preciso um driver de loopback, como o BlackHole.
+Um app desktop (Electron + React) com o diagrama no centro, a conversa e a validação ao lado, e uma janela flutuante (sempre por cima) para deixar em cima da call.
+
+| Atalho | O que faz |
+|---|---|
+| `Ctrl+Shift+D` | redesenha agora |
+| `Ctrl+Shift+P` | pausa / continua |
+| `Ctrl+Shift+O` | janela flutuante |
+
+No canvas: roda do mouse dá zoom, arrastar move, duplo clique enquadra. Dá pra copiar o código Mermaid ou salvar o SVG. A caixa de texto embaixo da conversa manda notas e correções direto pro desenho.
+
+## Instalação (desenvolvimento)
+
+Requisitos: Windows, Python 3.11+ e Node.js 22+. No macOS é preciso um driver de loopback, como o BlackHole.
 
 ```powershell
 npm i -g @anthropic-ai/claude-code
@@ -33,55 +45,48 @@ claude.cmd          # uma vez: /login com a sua conta, depois /exit
 
 ```powershell
 git clone git@github.com:Guilherme-b-damasio/call-sketch.git; cd call-sketch
-python -m venv .venv
-.venv\Scripts\python -m pip install -e ".[gpu]"     # sem placa NVIDIA, tire o [gpu]
+cd engine; python -m venv .venv
+.venv\Scripts\python -m pip install -e ".[gpu,dev]"     # sem placa NVIDIA, tire o gpu
+cd ..\app; npm install
+npm run dev
 ```
 
-## Uso
-
-```powershell
-.venv\Scripts\call-sketch
-```
-
-A página abre em http://localhost:8765. Opções úteis:
-
-| Opção | O que faz |
-|---|---|
-| `--mode brainstorm` | começa num modo fixo (padrão `auto`) |
-| `--model opus` | desenho mais caprichado e mais lento (padrão `sonnet`) |
-| `--every 30` | segundos entre redesenhos (padrão 20) |
-| `--check-every 0` | desliga o validador (padrão 30) |
-| `--no-voice` | sem anúncio em voz |
-| `--voice pt-BR-FranciscaNeural` | troca a voz |
-| `--no-mic` | só o áudio do PC |
-| `--backend api` | usa `ANTHROPIC_API_KEY` (pago) em vez do login; instale com `.[api]` |
-| `--list-devices` | lista os dispositivos de áudio |
-| `--list-modes` | lista os modos |
+O app acha o motor em `engine/.venv` sozinho. Tudo o mais fica em Configurações: assinatura ou chave de API, modelo, intervalos, voz, microfone, tamanho do Whisper e idioma.
 
 **Áudio:** ele ouve a **saída padrão** do Windows. Se a call toca em outro dispositivo, defina esse como padrão. A voz do call-sketch toca só para você; para o pessoal da call ouvir, é preciso um cabo virtual de áudio (ex: VB-Cable) como microfone.
 
-**Uso do plano:** o desenho e a validação usam o seu limite do Claude. Se apertar, aumente `--every` e `--check-every`.
+**Uso do plano:** o desenho e a validação usam o seu limite do Claude. Se apertar, aumente os intervalos nas configurações.
+
+## Instalador (para quem não programa)
+
+Baixe na página de [Releases](https://github.com/Guilherme-b-damasio/call-sketch/releases): Windows (`.exe`), macOS Apple Silicon (`.dmg`) e Linux (`.deb` e `.AppImage`). As instruções de cada sistema estão na release. Quem instala ainda precisa do Claude Code logado (ou de uma chave de API).
+
+**macOS:** não existe captura nativa do som do sistema. Instale o [BlackHole](https://existential.audio/blackhole/) e crie um dispositivo de saída múltipla com os alto-falantes + BlackHole; o app acha o BlackHole sozinho.
+
+Para gerar uma release, crie um tag `v*` (ex: `git tag v0.3.1 && git push origin v0.3.1`). O GitHub Actions compila nos três sistemas e publica. Para gerar só no seu PC:
+
+```powershell
+cd engine; .venv\Scripts\python -m pip install pyinstaller; .venv\Scripts\python build.py
+cd ..\app; npm run dist:win        # ou dist:mac / dist:linux, no próprio sistema
+```
 
 ## Desenvolvimento
 
 ```powershell
-.venv\Scripts\python -m pip install -e ".[gpu,api,dev]"
-.venv\Scripts\python -m pytest
-.venv\Scripts\python -m ruff check src tests
+cd engine; .venv\Scripts\python -m pytest; .venv\Scripts\ruff check src tests
+cd app; npm run typecheck; npm test
 ```
 
 ```
-src/call_sketch/
-  cli.py          linha de comando, liga as peças
-  audio.py        captura (loopback + mic) e corte das frases nas pausas
-  transcriber.py  Whisper (GPU/CPU)
-  session.py      estado da sessão, filtro de eco
-  llm.py          Claude via Claude Code (assinatura) ou API
-  modes.py        carrega os modos (.md)
-  sketcher.py     pede o diagrama e troca de modo
-  validator.py    confere afirmações técnicas
-  voice.py        anúncio em voz (edge-tts)
-  server.py       página + API local
-  modes/*.md      modos padrão
-  web/index.html  página
+engine/                      motor de áudio em Python (fala JSON por stdin/stdout)
+  audio.py                   captura (loopback + mic) e corte das frases nas pausas
+  transcriber.py             Whisper (GPU/CPU) e filtro de alucinações
+  echo.py                    tira do mic o eco do som da call
+  voice.py                   anúncio em voz (edge-tts)
+app/
+  src/main/                  processo principal: Claude, modos, desenho, validação, estado
+  src/preload/               ponte segura entre main e interface
+  src/renderer/              interface React + Tailwind + Motion, Mermaid sob demanda
+  src/shared/types.ts        tipos comuns
+  resources/modes/*.md       modos padrão
 ```

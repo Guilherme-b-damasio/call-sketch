@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "call-sketch-engine"
+version = "0.3.0"
+description = "Motor de audio do call-sketch: captura o audio do PC e o microfone, transcreve com Whisper e fala."
+requires-python = ">=3.11"
+dependencies = [
+    "faster-whisper>=1.1",
+    "soundcard>=0.4.3",
+    "numpy>=1.26",
+    "edge-tts>=7.0",
+    "miniaudio>=1.61",
+]
+
+[project.optional-dependencies]
+# Whisper na GPU NVIDIA (Windows/Linux)
+gpu = ["nvidia-cublas-cu12", "nvidia-cudnn-cu12>=9,<10"]
+dev = ["pytest>=8", "ruff>=0.8"]
+
+[project.scripts]
+call-sketch-engine = "call_sketch_engine.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/call_sketch_engine"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
