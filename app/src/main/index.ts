@@ -1,8 +1,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { app, BrowserWindow, globalShortcut, ipcMain, shell } from 'electron'
-import { AUTO, type Settings } from '@shared/types'
+import { AUTO, type LLMTest, type Settings } from '@shared/types'
 import { type LLM, makeLLM } from './claude'
+import { listModels } from './openai'
 import { Engine, resolveEngine } from './engine'
 import { loadModes, type Mode, modeInfo } from './modes'
 import { loadSettings, saveSettings } from './settings'
@@ -125,7 +126,7 @@ function createMainWindow(): void {
     overlayWin?.close()
   })
   mainWin.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url)
+    if (/^https?:\/\//i.test(url)) void shell.openExternal(url) // so links web, nunca file:// e afins
     return { action: 'deny' }
   })
   loadRenderer(mainWin)
@@ -260,6 +261,18 @@ function selectMode(mode: string): void {
   if (!already || mode === AUTO) say(mode === AUTO ? AUTO_ANNOUNCE : modes.get(mode)!.announce)
 }
 
+/** Pergunta algo bobo pra conferir conexao, chave e modelo antes de salvar. */
+async function testLLM(s: Settings): Promise<LLMTest> {
+  const t = Date.now()
+  try {
+    const out = await makeLLM(s).ask('Responda apenas com a palavra OK.', 'Teste de conexão.')
+    const secs = ((Date.now() - t) / 1000).toFixed(1).replace('.', ',')
+    return { ok: true, msg: `Funcionou em ${secs}s. Resposta: "${out.slice(0, 40)}"` }
+  } catch (e) {
+    return { ok: false, msg: e instanceof Error ? e.message : String(e) }
+  }
+}
+
 function applySettings(next: Settings): void {
   const prev = settings
   settings = next
@@ -278,6 +291,8 @@ ipcMain.handle('modes:get', () => {
 })
 ipcMain.handle('settings:get', () => settings)
 ipcMain.handle('settings:save', (_, s: Settings) => applySettings(s))
+ipcMain.handle('llm:models', (_, s: Settings) => listModels(s.llmUrl, s.llmKey))
+ipcMain.handle('llm:test', (_, s: Settings) => testLLM(s))
 ipcMain.handle('mode:set', (_, mode: string) => selectMode(mode))
 ipcMain.handle('redraw', () => sketcher.requestNow())
 ipcMain.handle('reset', () => store.reset())
