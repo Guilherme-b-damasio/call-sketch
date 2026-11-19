@@ -8,13 +8,33 @@ files:
 extraResources:
   - from: resources/modes
     to: modes
-  # motor de audio empacotado com PyInstaller (engine/build.ps1); sem ele o app usa o Python configurado
+  # motor de audio empacotado com PyInstaller (python engine/build.py); sem ele o app usa o Python configurado
   - from: ../engine/dist/call-sketch-engine
     to: engine
     filter: ['**/*']
+artifactName: CallSketch-${version}-${os}-${arch}.${ext}
+publish: null
+
 win:
   target: nsis
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
-  artifactName: CallSketch-Setup-${version}.${ext}
+  artifactName: CallSketch-${version}-windows-setup.${ext}
+
+mac:
+  target: dmg
+  category: public.app-category.productivity
+  # sem certificado da Apple: assinatura ad-hoc (o usuario libera no primeiro uso, veja o README)
+  identity: '-'
+  hardenedRuntime: false
+  extendInfo:
+    NSMicrophoneUsageDescription: O Call Sketch ouve o microfone e o som da call para transcrever a conversa.
+dmg:
+  artifactName: CallSketch-${version}-mac-${arch}.${ext}
+
+linux:
+  target: [AppImage, deb]
+  category: Office
+  maintainer: Guilherme-b-damasio <Guilherme-b-damasio@users.noreply.github.com>
+  synopsis: Transforma as falas da call em diagramas ao vivo com o Claude
