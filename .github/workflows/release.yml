@@ -86,6 +86,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           ls -la dist
-          gh release create "$GITHUB_REF_NAME" dist/* \
-            --title "Call Sketch $GITHUB_REF_NAME" \
-            --notes-file .github/release-notes.md
+          # se a release ja existe (ex: criada a mao com so um sistema), so acrescenta/troca os arquivos
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+            gh release edit "$GITHUB_REF_NAME" --notes-file .github/release-notes.md
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* \
+              --title "Call Sketch $GITHUB_REF_NAME" \
+              --notes-file .github/release-notes.md
+          fi
