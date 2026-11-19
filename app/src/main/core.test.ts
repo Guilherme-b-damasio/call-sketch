@@ -7,6 +7,7 @@ import type { LLM } from './claude'
 import { resolveEngine } from './engine'
 import { loadModes, parseMode } from './modes'
 import { buildSystem, parseChecks, parseResponse } from './prompts'
+import { mergePath } from './shellPath'
 import { Sketcher } from './sketcher'
 import { Store } from './store'
 
@@ -221,5 +222,12 @@ describe('motor', () => {
   it('respeita o python configurado', () => {
     const cmd = resolveEngine({ ...DEFAULT_SETTINGS, pythonPath: 'C:/py/python.exe' }, { resourcesPath: 'x', appPath: 'y' })
     expect(cmd).toEqual({ cmd: 'C:/py/python.exe', args: ['-m', 'call_sketch_engine'] })
+  })
+})
+
+describe('PATH', () => {
+  it('junta sem repetir e na ordem', () => {
+    const d = process.platform === 'win32' ? ';' : ':'
+    expect(mergePath(`a${d}b`, `b${d}c`, undefined, `${d}a${d}d`)).toBe(['a', 'b', 'c', 'd'].join(d))
   })
 })

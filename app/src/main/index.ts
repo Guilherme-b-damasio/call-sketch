@@ -6,9 +6,12 @@ import { type LLM, makeLLM } from './claude'
 import { Engine, resolveEngine } from './engine'
 import { loadModes, type Mode, modeInfo } from './modes'
 import { loadSettings, saveSettings } from './settings'
+import { fixShellPath } from './shellPath'
 import { Sketcher } from './sketcher'
 import { Store } from './store'
 import { Validator } from './validator'
+
+fixShellPath() // antes de procurar o claude e de iniciar o motor
 
 const AUTO_ANNOUNCE = 'Modo automático. Vou escolher o melhor desenho conforme a conversa.'
 
