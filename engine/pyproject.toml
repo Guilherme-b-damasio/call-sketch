@@ -3,10 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "call-sketch"
-version = "0.2.0"
-description = "Escuta a conversa (Discord, Meet, qualquer audio do PC) e o Claude transforma as falas em diagramas ao vivo."
-readme = "README.md"
+name = "call-sketch-engine"
+version = "0.3.0"
+description = "Motor de audio do call-sketch: captura o audio do PC e o microfone, transcreve com Whisper e fala."
 requires-python = ">=3.11"
 dependencies = [
     "faster-whisper>=1.1",
@@ -19,15 +18,13 @@ dependencies = [
 [project.optional-dependencies]
 # Whisper na GPU NVIDIA (Windows/Linux)
 gpu = ["nvidia-cublas-cu12", "nvidia-cudnn-cu12>=9,<10"]
-# usar a API paga da Anthropic em vez do login do Claude Code
-api = ["anthropic>=2.10"]
 dev = ["pytest>=8", "ruff>=0.8"]
 
 [project.scripts]
-call-sketch = "call_sketch.cli:main"
+call-sketch-engine = "call_sketch_engine.__main__:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/call_sketch"]
+packages = ["src/call_sketch_engine"]
 
 [tool.ruff]
 line-length = 110

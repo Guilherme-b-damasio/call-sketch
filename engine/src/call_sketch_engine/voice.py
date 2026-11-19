@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import queue
 import threading
+from collections.abc import Callable
 
 import numpy as np
+
+log = logging.getLogger(__name__)
 
 VOICE_RATE = 24000
 UNMUTE_DELAY_SEC = 0.6  # espera o eco da propria voz sumir antes de voltar a ouvir
@@ -31,26 +35,27 @@ def synthesize(text: str, voice: str) -> np.ndarray:
 class Voice(threading.Thread):
     """Fala em segundo plano. Enquanto fala, `muted` fica ligado pra captura nao transcrever a si mesma."""
 
-    def __init__(self, voice: str, muted: threading.Event, enabled: bool = True) -> None:
+    def __init__(self, muted: threading.Event,
+                 on_speaking: Callable[[bool, str], None] = lambda speaking, text: None) -> None:
         super().__init__(name="voice", daemon=True)
-        self.voice, self.muted, self.enabled = voice, muted, enabled
-        self._q: queue.Queue[str] = queue.Queue()
+        self.muted, self.on_speaking = muted, on_speaking
+        self._q: queue.Queue[tuple[str, str]] = queue.Queue()
 
-    def say(self, text: str) -> None:
-        print(f"  >> {text}")
-        if self.enabled:
-            self._q.put(text)
+    def say(self, text: str, voice: str = "pt-BR-AntonioNeural") -> None:
+        self._q.put((text, voice))
 
     def run(self) -> None:
         import soundcard as sc
 
         while True:
-            text = self._q.get()
+            text, voice = self._q.get()
             try:
-                audio = synthesize(text, self.voice)
+                audio = synthesize(text, voice)
                 self.muted.set()
+                self.on_speaking(True, text)
                 sc.default_speaker().play(audio, samplerate=VOICE_RATE)
-            except Exception as e:
-                print(f"voz: erro {e}")
+            except Exception:
+                log.exception("erro na voz")
             finally:
+                self.on_speaking(False, text)
                 threading.Timer(UNMUTE_DELAY_SEC, self.muted.clear).start()

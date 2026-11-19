@@ -107,9 +107,12 @@ def default_sources(mic: bool) -> list[tuple[str, object, str]]:
     return sources
 
 
-def list_devices() -> str:
+def list_devices() -> dict[str, list[str] | str]:
     import soundcard as sc
 
-    speakers = "\n".join(f"  - {s.name}" for s in sc.all_speakers())
-    mics = "\n".join(f"  - {m.name}" for m in sc.all_microphones())
-    return f"Saidas (o audio da call vem da padrao):\n{speakers}\nMicrofones:\n{mics}"
+    return {
+        "speakers": [s.name for s in sc.all_speakers()],
+        "mics": [m.name for m in sc.all_microphones()],
+        "default_speaker": sc.default_speaker().name,
+        "default_mic": sc.default_microphone().name,
+    }

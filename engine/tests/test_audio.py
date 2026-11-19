@@ -1,6 +1,6 @@
 import numpy as np
 
-from call_sketch.audio import PhraseChunker, to_16k_mono
+from call_sketch_engine.audio import PhraseChunker, to_16k_mono
 
 BLOCK = 4000  # 0.25 s a 16 kHz
 

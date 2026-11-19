@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import queue
 import site
 import threading
+from collections.abc import Callable
 from pathlib import Path
 
 import numpy as np
 
-from call_sketch.audio import WHISPER_RATE
-from call_sketch.session import Line, Session
+from call_sketch_engine.audio import WHISPER_RATE
+
+log = logging.getLogger(__name__)
 
 
 def _add_cuda_dlls() -> None:
@@ -24,6 +27,7 @@ def _add_cuda_dlls() -> None:
 
 
 def load_whisper(size: str = "auto", language: str = "pt"):
+    """-> (modelo, "gpu" | "cpu")."""
     _add_cuda_dlls()
     from faster_whisper import WhisperModel
 
@@ -32,19 +36,18 @@ def load_whisper(size: str = "auto", language: str = "pt"):
         # transcribe devolve um gerador: precisa consumir pra GPU rodar de verdade
         noise = (np.random.randn(WHISPER_RATE) * 0.1).astype(np.float32)
         list(model.transcribe(noise, language=language)[0])
-        print("whisper: GPU")
-        return model
+        return model, "gpu"
     except Exception as e:  # sem CUDA/cuDNN -> CPU
-        print(f"whisper: GPU indisponivel ({e.__class__.__name__}), usando CPU")
-        return WhisperModel("small" if size == "auto" else size, device="cpu", compute_type="int8")
+        log.warning("GPU indisponivel (%s), usando CPU", e.__class__.__name__)
+        return WhisperModel("small" if size == "auto" else size, device="cpu", compute_type="int8"), "cpu"
 
 
 class Transcriber(threading.Thread):
-    def __init__(self, model, audio_q: queue.Queue, session: Session, language: str,
-                 stop: threading.Event) -> None:
+    def __init__(self, model, audio_q: queue.Queue, language: str,
+                 on_text: Callable[[str, str], None], stop: threading.Event) -> None:
         super().__init__(name="transcriber", daemon=True)
-        self.model, self.audio_q, self.session = model, audio_q, session
-        self.language, self.stop = language, stop
+        self.model, self.audio_q, self.language = model, audio_q, language
+        self.on_text, self.stop = on_text, stop
 
     def run(self) -> None:
         while not self.stop.is_set():
@@ -55,8 +58,8 @@ class Transcriber(threading.Thread):
             try:
                 segs, _ = self.model.transcribe(audio, language=self.language, vad_filter=True)
                 text = " ".join(s.text.strip() for s in segs).strip()
-            except Exception as e:
-                print(f"erro na transcricao: {e}")
+            except Exception:
+                log.exception("erro na transcricao")
                 continue
-            if text and self.session.add_line(Line(who=who, text=text)):
-                print(f"  [{who}] {text}")
+            if text:
+                self.on_text(who, text)
