@@ -1,6 +1,6 @@
 /** Estado da sessao no processo principal. Avisa a interface a cada mudanca (agrupado). */
 import { EventEmitter } from 'node:events'
-import { AUTO, type AppState, type Check, type EngineInfo, type Line } from '@shared/types'
+import { AUTO, type AppState, type Check, type EngineInfo, type Line, type ShareInfo } from '@shared/types'
 
 const MAX_LINES = 1000
 const EMIT_DELAY_MS = 40
@@ -30,6 +30,7 @@ export class Store extends EventEmitter<{ change: [AppState]; redraw: []; line: 
       speaking: null,
       engine: { state: 'starting', msg: 'iniciando...' },
       lastDrawAt: null,
+      share: { state: 'off', viewers: 0 },
     }
   }
 
@@ -108,6 +109,10 @@ export class Store extends EventEmitter<{ change: [AppState]; redraw: []; line: 
 
   setEngine(engine: EngineInfo): void {
     this.update({ engine })
+  }
+
+  setShare(share: Partial<ShareInfo>): void {
+    this.update({ share: { ...this.s.share, ...share } })
   }
 
   reset(): void {

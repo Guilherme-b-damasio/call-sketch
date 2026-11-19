@@ -53,6 +53,27 @@ export interface AppState {
   speaking: string | null // texto que a voz esta falando
   engine: EngineInfo
   lastDrawAt: number | null
+  share: ShareInfo
+}
+
+/** O que quem assiste a sessao recebe (so o desenho, nunca a conversa). */
+export interface ShareView {
+  mermaid: string
+  version: number
+  activeMode: string
+  modeName: string
+  activity: Activity
+  paused: boolean
+}
+
+export type ShareState = 'off' | 'starting' | 'on' | 'error'
+
+export interface ShareInfo {
+  state: ShareState
+  msg?: string
+  publicUrl?: string // pelo tunel (qualquer rede)
+  lanUrl?: string // mesma rede
+  viewers: number
 }
 
 export interface Settings {
@@ -103,6 +124,10 @@ export interface Api {
   renderError(error: string | null): Promise<void>
   toggleOverlay(): Promise<void>
   openModesFolder(): Promise<void>
+  startShare(): Promise<void>
+  stopShare(): Promise<void>
+  /** Abre a sessao de outra pessoa numa janela (aceita o link https ou callsketch://). */
+  joinSession(link: string): Promise<void>
   onState(cb: (s: AppState) => void): () => void
   isOverlay: boolean
 }
