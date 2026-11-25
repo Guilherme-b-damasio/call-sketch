@@ -61,7 +61,14 @@ jobs:
 
       - name: dependencias do sistema (linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libpulse0
+        # o soundcard precisa de um servidor de audio ja no import (inclusive quando o PyInstaller
+        # analisa o pacote e no --check do motor); a maquina do CI nao tem som, entao sobe um PulseAudio
+        # com uma saida falsa
+        run: |
+          sudo apt-get update && sudo apt-get install -y libpulse0 pulseaudio
+          pulseaudio --start --exit-idle-time=-1
+          pactl load-module module-null-sink sink_name=ci
+          pactl info | grep -i "server name"
 
       - name: motor de audio (PyInstaller)
         working-directory: engine
