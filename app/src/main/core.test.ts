@@ -1,6 +1,6 @@
-import { mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { AUTO, DEFAULT_SETTINGS, type Line } from '@shared/types'
 import type { LLM } from './claude'
@@ -232,8 +232,18 @@ describe('desenho guiado pela fala', () => {
 
 describe('motor', () => {
   it('usa o venv do repositorio em dev', () => {
-    const cmd = resolveEngine(DEFAULT_SETTINGS, { resourcesPath: 'nada', appPath: resolve(__dirname, '../..') })
-    expect(cmd?.args).toEqual(['-m', 'call_sketch_engine'])
+    // repositorio falso: <raiz>/app e <raiz>/engine/.venv (no CI o motor nao tem venv)
+    const root = mkdtempSync(join(tmpdir(), 'cs-repo-'))
+    const python = join(root, 'engine', '.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python')
+    mkdirSync(dirname(python), { recursive: true })
+    writeFileSync(python, '')
+    const cmd = resolveEngine(DEFAULT_SETTINGS, { resourcesPath: 'nada', appPath: join(root, 'app') })
+    expect(cmd).toEqual({ cmd: resolve(python), args: ['-m', 'call_sketch_engine'] })
+  })
+
+  it('sem venv e sem motor empacotado avisa que nao achou', () => {
+    const root = mkdtempSync(join(tmpdir(), 'cs-repo-'))
+    expect(resolveEngine(DEFAULT_SETTINGS, { resourcesPath: root, appPath: join(root, 'app') })).toBeNull()
   })
 
   it('respeita o python configurado', () => {
