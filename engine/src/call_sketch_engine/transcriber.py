@@ -68,7 +68,7 @@ def keep_segment(no_speech_prob: float, avg_logprob: float) -> bool:
 
 class Transcriber(threading.Thread):
     def __init__(self, model, audio_q: queue.Queue, language: str,
-                 on_text: Callable[[str, str], None], stop: threading.Event) -> None:
+                 on_text: Callable[[str, str, np.ndarray], None], stop: threading.Event) -> None:
         super().__init__(name="transcriber", daemon=True)
         self.model, self.audio_q, self.language = model, audio_q, language
         self.on_text, self.stop = on_text, stop
@@ -90,4 +90,4 @@ class Transcriber(threading.Thread):
                 log.exception("erro na transcricao")
                 continue
             if text and not is_phantom(text):
-                self.on_text(who, text)
+                self.on_text(who, text, audio)
