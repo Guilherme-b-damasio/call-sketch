@@ -6,6 +6,7 @@ import appIcon from '../../build/icon.png?asset'
 import { type LLM, makeLLM } from './claude'
 import { listModels } from './openai'
 import { Engine, resolveEngine } from './engine'
+import { History } from './history'
 import { loadModes, type Mode, modeInfo } from './modes'
 import { saveExport } from './pdf'
 import { loadSettings, saveSettings } from './settings'
@@ -37,6 +38,8 @@ let mainWin: BrowserWindow | null = null
 let overlayWin: BrowserWindow | null = null
 
 const store = new Store(AUTO)
+const historyDir = join(app.getPath('userData'), 'historico')
+const history = new History(historyDir, store, () => settings.history)
 const engine = new Engine()
 const share = new ShareSession(store, {
   webDir: join(__dirname, '../renderer'), // o renderer compilado (tem a viewer.html)
@@ -370,6 +373,13 @@ ipcMain.handle('viewer:float', (e, on: boolean) => {
   if (!win || !viewerWins.has(win)) return false // so as janelas de quem assiste
   return setViewerFloating(win, on === true)
 })
+ipcMain.handle('history:list', () => history.list())
+ipcMain.handle('history:get', (_, id: string) => history.get(String(id)))
+ipcMain.handle('history:delete', (_, id: string) => history.delete(String(id)))
+ipcMain.handle('history:open-folder', () => {
+  mkdirSync(historyDir, { recursive: true })
+  return shell.openPath(historyDir)
+})
 ipcMain.handle('modes:open-folder', () => {
   mkdirSync(userModesDir, { recursive: true })
   return shell.openPath(userModesDir)
@@ -432,4 +442,5 @@ app.on('before-quit', () => {
   store.setEngine({ state: 'stopped' })
   engine.stop()
   void share.stop(false)
+  history.flush()
 })

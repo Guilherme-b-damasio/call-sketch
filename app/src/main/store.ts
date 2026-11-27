@@ -13,7 +13,7 @@ function newTab(id: string, mode: string): Tab {
   return { id, mode, activeMode: mode === AUTO ? '' : mode, mermaid: '', layout: {}, locked: [] }
 }
 
-export class Store extends EventEmitter<{ change: [AppState]; redraw: []; line: [] }> {
+export class Store extends EventEmitter<{ change: [AppState]; redraw: []; line: []; diagram: [tabId: string, by: 'ia' | 'mao'] }> {
   private s: AppState
   private resets = 0
   private seq = 1_000_000 // ids das notas/validacoes (as falas usam os ids do motor)
@@ -98,6 +98,7 @@ export class Store extends EventEmitter<{ change: [AppState]; redraw: []; line: 
         tabs: this.s.tabs.map((t) => (t.id === tabId ? { ...t, mermaid: code, activeMode: activeMode ?? t.activeMode } : t)),
         lastDrawAt: Date.now(),
       })
+      this.emit('diagram', tabId, 'ia')
       return
     }
     const changed = !!code && code !== this.s.mermaid
@@ -109,6 +110,7 @@ export class Store extends EventEmitter<{ change: [AppState]; redraw: []; line: 
       error: null,
       lastDrawAt: Date.now(),
     })
+    if (changed) this.emit('diagram', tabId, 'ia')
   }
 
   setMode(mode: string): void {
@@ -151,10 +153,11 @@ export class Store extends EventEmitter<{ change: [AppState]; redraw: []; line: 
     if (!Object.keys(patch).length) return
     if (edit.tabId !== this.s.activeTab) {
       this.update({ tabs: this.s.tabs.map((t) => (t.id === edit.tabId ? { ...t, ...patch } : t)) })
-      return
+    } else {
+      // a versao sobe ate so com posicao nova: quem assiste a sessao recebe a arrumacao
+      this.update({ ...patch, version: this.s.version + 1, renderError: null })
     }
-    // a versao sobe ate so com posicao nova: quem assiste a sessao recebe a arrumacao
-    this.update({ ...patch, version: this.s.version + 1, renderError: null })
+    if (patch.mermaid || patch.layout) this.emit('diagram', edit.tabId, 'mao')
   }
 
   closeTab(id: string): void {
