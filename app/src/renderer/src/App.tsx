@@ -55,7 +55,7 @@ export function App() {
               <Toasts error={state.error} speaking={state.speaking} />
             </section>
             <ErrorBoundary>
-              <SidePanel lines={state.lines} checks={state.checks} checking={state.activity === 'checking'} suggestions={state.suggestions} />
+              <SidePanel lines={state.lines} checks={state.checks} checking={state.activity === 'checking'} suggestions={state.suggestions} speakers={state.speakers} />
             </ErrorBoundary>
           </main>
           <SettingsDialog open={settings} onClose={closeSettings} />

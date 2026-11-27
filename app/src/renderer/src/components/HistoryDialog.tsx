@@ -55,6 +55,7 @@ function replayState(rec: CallRecord, tabId: string, idx: number): AppState {
     layout: v?.layout ?? {},
     locked: [],
     suggestions: [],
+    speakers: {},
   }
 }
 
@@ -391,7 +392,7 @@ function Replay({
           {lines.length ? (
             <ol ref={listRef} className="space-y-3">
               {lines.map((l) => (
-                <LineRow key={l.id} line={l} />
+                <LineRow key={l.id} line={l} names={rec.speakers} />
               ))}
             </ol>
           ) : (

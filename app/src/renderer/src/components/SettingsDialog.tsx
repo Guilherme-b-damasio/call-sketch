@@ -407,6 +407,15 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
                 </Field>
               </Section>
 
+              <Section title="Quem fala">
+                <Field
+                  label="Separar as vozes da call"
+                  hint="Mostra Pessoa 1, Pessoa 2… em vez de só “call” (clique no nome pra trocar). Baixa um modelo de 26 MB na primeira vez e roda na CPU."
+                >
+                  <Toggle checked={s.speakers} onChange={(v) => set('speakers', v)} label="Separar as vozes da call" />
+                </Field>
+              </Section>
+
               <Section title="Sessão compartilhada">
                 <Field label="Sugestões de quem assiste" hint="Quem abre o link pode mandar uma sugestão. Ela só vira nota pra IA se você aceitar.">
                   <Toggle checked={s.suggestions} onChange={(v) => set('suggestions', v)} label="Sugestões de quem assiste" />

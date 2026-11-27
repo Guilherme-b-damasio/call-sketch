@@ -1,6 +1,7 @@
 import { Check as CheckIcon, CircleQuestionMark, Lightbulb, MessageSquareText, SendHorizontal, ShieldCheck, TriangleExclamationPoint, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { MAX_SPEAKER_NAME, type SpeakerNames, speakerName } from '@shared/speakers'
 import type { Check, Line, Suggestion } from '@shared/types'
 import { api } from '../hooks'
 import { cx } from './ui'
@@ -28,8 +29,57 @@ function useStickToBottom(dep: unknown) {
   return { ref, onScroll }
 }
 
-export const LineRow = memo(function LineRow({ line }: { line: Line }) {
+// uma cor por pessoa da call (repete depois da oitava)
+const SPEAKER_DOTS = ['bg-sky-500', 'bg-amber-500', 'bg-pink-500', 'bg-teal-500', 'bg-orange-500', 'bg-indigo-400', 'bg-lime-500', 'bg-red-400']
+
+/** "Pessoa 1" clicavel: vira um campo pra dar nome (vale pra todas as falas dessa pessoa). */
+function SpeakerLabel({ n, names, onRename }: { n: number; names: SpeakerNames; onRename?: (n: number, name: string) => void }) {
+  const [editing, setEditing] = useState(false)
+  const label = speakerName(n, names)
+  if (!onRename) return <span className="font-medium">{label}</span>
+  if (editing)
+    return (
+      <input
+        autoFocus
+        defaultValue={names[n] ?? ''}
+        placeholder={`Pessoa ${n}`}
+        maxLength={MAX_SPEAKER_NAME}
+        aria-label={`Nome da Pessoa ${n}`}
+        onFocus={(e) => e.target.select()}
+        onBlur={(e) => {
+          onRename(n, e.target.value)
+          setEditing(false)
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur()
+          if (e.key === 'Escape') setEditing(false)
+        }}
+        className="w-28 rounded border border-accent-400 bg-white px-1 py-px text-[11px] font-medium text-zinc-800 outline-none dark:bg-ink-900 dark:text-zinc-100"
+      />
+    )
+  return (
+    <button
+      type="button"
+      onClick={() => setEditing(true)}
+      title="Clique pra dar nome a essa pessoa"
+      className="rounded font-medium underline-offset-2 hover:text-zinc-700 hover:underline dark:hover:text-zinc-300"
+    >
+      {label}
+    </button>
+  )
+}
+
+export const LineRow = memo(function LineRow({
+  line,
+  names = {},
+  onRename,
+}: {
+  line: Line
+  names?: SpeakerNames
+  onRename?: (n: number, name: string) => void
+}) {
   const s = WHO_STYLE[line.who]
+  const spk = line.who === 'call' && line.speaker ? line.speaker : null
   return (
     <motion.li
       layout="position"
@@ -40,8 +90,8 @@ export const LineRow = memo(function LineRow({ line }: { line: Line }) {
       className="group"
     >
       <div className="mb-0.5 flex items-center gap-1.5 text-[11px] text-zinc-400 dark:text-zinc-500">
-        <span className={cx('size-1.5 rounded-full', s.dot)} />
-        <span className="font-medium">{s.label}</span>
+        <span className={cx('size-1.5 rounded-full', spk ? SPEAKER_DOTS[(spk - 1) % SPEAKER_DOTS.length] : s.dot)} />
+        {spk ? <SpeakerLabel n={spk} names={names} onRename={onRename} /> : <span className="font-medium">{s.label}</span>}
         <span className="tabular-nums opacity-0 transition-opacity group-hover:opacity-100">{line.t}</span>
       </div>
       <p
@@ -81,7 +131,9 @@ const CheckRow = memo(function CheckRow({ check }: { check: Check }) {
   )
 })
 
-function Transcript({ lines }: { lines: Line[] }) {
+const rename = (n: number, name: string) => void api.renameSpeaker(n, name)
+
+function Transcript({ lines, names }: { lines: Line[]; names: SpeakerNames }) {
   const { ref, onScroll } = useStickToBottom(lines.length)
   const shown = lines.slice(-200) // o resto fica so no estado (o Claude usa), aqui nao precisa
   return (
@@ -92,7 +144,7 @@ function Transcript({ lines }: { lines: Line[] }) {
         <ul className="space-y-3">
           <AnimatePresence initial={false}>
             {shown.map((l) => (
-              <LineRow key={l.id} line={l} />
+              <LineRow key={l.id} line={l} names={names} onRename={rename} />
             ))}
           </AnimatePresence>
         </ul>
@@ -228,11 +280,13 @@ export function SidePanel({
   checks,
   checking,
   suggestions = [],
+  speakers = {},
 }: {
   lines: Line[]
   checks: Check[]
   checking: boolean
   suggestions?: Suggestion[]
+  speakers?: SpeakerNames
 }) {
   const [tab, setTab] = useState<Tab>('conversa')
   const [seen, setSeen] = useState(checks.length)
@@ -282,7 +336,7 @@ export function SidePanel({
         ))}
       </div>
 
-      {tab === 'conversa' ? <Transcript lines={lines} /> : <Checks checks={checks} checking={checking} />}
+      {tab === 'conversa' ? <Transcript lines={lines} names={speakers} /> : <Checks checks={checks} checking={checking} />}
       <Suggestions items={suggestions} />
       <NoteInput />
     </aside>
