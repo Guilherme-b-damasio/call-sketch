@@ -1,12 +1,14 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
+import { writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import { app, BrowserWindow, globalShortcut, ipcMain, type Rectangle, screen, shell } from 'electron'
+import { app, BrowserWindow, dialog, globalShortcut, ipcMain, type Rectangle, screen, shell } from 'electron'
 import { AUTO, type DiagramEdit, type ExportRequest, type Layout, type LLMTest, type Settings } from '@shared/types'
 import appIcon from '../../build/icon.png?asset'
 import { type LLM, makeLLM } from './claude'
 import { listModels } from './openai'
 import { Engine, resolveEngine } from './engine'
 import { History } from './history'
+import { makeMinutes } from './minutes'
 import { loadModes, type Mode, modeInfo } from './modes'
 import { saveExport } from './pdf'
 import { loadSettings, saveSettings } from './settings'
@@ -379,6 +381,37 @@ ipcMain.handle('history:delete', (_, id: string) => history.delete(String(id)))
 ipcMain.handle('history:open-folder', () => {
   mkdirSync(historyDir, { recursive: true })
   return shell.openPath(historyDir)
+})
+/** Nome de arquivo sem caractere que o Windows/mac recusa. */
+const cleanName = (s: string) =>
+  [...s]
+    .map((ch) => (ch < ' ' || '\\/:*?"<>|'.includes(ch) ? ' ' : ch))
+    .join('')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80)
+
+ipcMain.handle('minutes:make', async (_, id: string) => {
+  const rec = history.get(String(id))
+  if (!rec) throw new Error('call nao encontrada')
+  const md = await makeMinutes(rec, getLLM(), (m) => modes.get(m)?.name ?? m)
+  history.setMinutes(rec.id, md)
+  return md
+})
+ipcMain.handle('minutes:save', async (e, id: string, md: string, name: string) => {
+  const text = String(md).slice(0, 2_000_000)
+  history.setMinutes(String(id), text)
+  const safe = cleanName(String(name)) || 'ata'
+  const opts = {
+    title: 'Salvar ata',
+    defaultPath: join(app.getPath('documents'), `${safe}.md`),
+    filters: [{ name: 'Markdown', extensions: ['md'] }],
+  }
+  const parent = BrowserWindow.fromWebContents(e.sender)
+  const { canceled, filePath } = parent ? await dialog.showSaveDialog(parent, opts) : await dialog.showSaveDialog(opts)
+  if (canceled || !filePath) return null
+  await writeFile(filePath, text, 'utf-8')
+  return filePath
 })
 ipcMain.handle('modes:open-folder', () => {
   mkdirSync(userModesDir, { recursive: true })

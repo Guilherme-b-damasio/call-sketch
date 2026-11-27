@@ -2,7 +2,7 @@ import { AnimatePresence, LayoutGroup } from 'motion/react'
 import { useCallback, useState } from 'react'
 import { Canvas } from './components/Canvas'
 import { ErrorBoundary } from './components/ErrorBoundary'
-import { HistoryDialog } from './components/HistoryDialog'
+import { HistoryDialog, type HistoryView } from './components/HistoryDialog'
 import { ModeBar } from './components/ModeBar'
 import { Overlay } from './components/Overlay'
 import { SessionDialog } from './components/SessionDialog'
@@ -23,9 +23,10 @@ export function App() {
   const [session, setSession] = useState(false)
   const openSession = useCallback(() => setSession(true), [])
   const closeSession = useCallback(() => setSession(false), [])
-  const [history, setHistory] = useState(false)
-  const openHistory = useCallback(() => setHistory(true), [])
-  const closeHistory = useCallback(() => setHistory(false), [])
+  const [history, setHistory] = useState<HistoryView | null>(null)
+  const openHistory = useCallback(() => setHistory('replay'), [])
+  const openMinutes = useCallback(() => setHistory('ata'), [])
+  const closeHistory = useCallback(() => setHistory(null), [])
   const [splash, setSplash] = useState(() => !api.isOverlay && shouldShowSplash())
   const endSplash = useCallback(() => setSplash(false), [])
 
@@ -43,7 +44,7 @@ export function App() {
     <LayoutGroup>
       {state && (
         <div className="flex h-screen flex-col overflow-hidden">
-          <TitleBar state={state} brand={!splash} onSettings={openSettings} onSession={openSession} onHistory={openHistory} />
+          <TitleBar state={state} brand={!splash} onSettings={openSettings} onSession={openSession} onHistory={openHistory} onMinutes={openMinutes} />
           <ModeBar modes={modes} mode={state.mode} activeMode={state.activeMode} single={state.tabs.length < 2} />
           <TabStrip tabs={state.tabs} active={state.activeTab} modes={modes} />
           <main className="flex min-h-0 flex-1">
@@ -59,7 +60,7 @@ export function App() {
           </main>
           <SettingsDialog open={settings} onClose={closeSettings} />
           <SessionDialog open={session} share={state.share} onClose={closeSession} />
-          <HistoryDialog open={history} onClose={closeHistory} modes={modes} />
+          <HistoryDialog open={!!history} start={history ?? 'replay'} onClose={closeHistory} modes={modes} />
         </div>
       )}
       <AnimatePresence>{splash && <Splash key="splash" onDone={endSplash} />}</AnimatePresence>

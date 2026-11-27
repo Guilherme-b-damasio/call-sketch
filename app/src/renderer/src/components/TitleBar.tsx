@@ -1,4 +1,4 @@
-import { Cpu, Eraser, History, Pause, PencilLine, PictureInPicture2, Play, Radio, RefreshCw, Settings, Zap } from 'lucide-react'
+import { Cpu, Eraser, History, NotebookPen, Pause, PencilLine, PictureInPicture2, Play, Radio, RefreshCw, Settings, Zap } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useState } from 'react'
 import type { AppState } from '@shared/types'
@@ -61,9 +61,10 @@ interface TitleBarProps {
   onSettings: () => void
   onSession: () => void
   onHistory: () => void
+  onMinutes: () => void
 }
 
-export function TitleBar({ state, brand = true, onSettings, onSession, onHistory }: TitleBarProps) {
+export function TitleBar({ state, brand = true, onSettings, onSession, onHistory, onMinutes }: TitleBarProps) {
   const sharing = state.share.state === 'on' || state.share.state === 'starting'
   const device = state.engine.device
   return (
@@ -143,6 +144,9 @@ export function TitleBar({ state, brand = true, onSettings, onSession, onHistory
               </motion.span>
             )}
           </AnimatePresence>
+        </IconButton>
+        <IconButton label="Ata da call" disabled={!state.lines.length} onClick={onMinutes}>
+          <NotebookPen className="size-4" />
         </IconButton>
         <IconButton label="Histórico das calls" onClick={onHistory}>
           <History className="size-4" />

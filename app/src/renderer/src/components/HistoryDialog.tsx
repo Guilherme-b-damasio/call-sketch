@@ -2,13 +2,14 @@
  * Historico das calls: a lista do que ficou guardado neste PC e o replay de uma call, com o
  * diagrama de cada momento, uma linha do tempo pra ir e voltar e a conversa ate aquele ponto.
  */
-import { FolderOpen, History, Pause, Play, SkipBack, SkipForward, Trash2, X } from 'lucide-react'
+import { FolderOpen, History, NotebookPen, Pause, Play, SkipBack, SkipForward, Trash2, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { AppState, CallRecord, CallSummary, ModeInfo } from '@shared/types'
 import { AUTO } from '@shared/types'
 import { api } from '../hooks'
 import { Canvas } from './Canvas'
+import { MinutesView } from './MinutesView'
 import { LineRow } from './SidePanel'
 import { cx, IconButton, ModeIcon } from './ui'
 
@@ -56,7 +57,20 @@ function replayState(rec: CallRecord, tabId: string, idx: number): AppState {
   }
 }
 
-export function HistoryDialog({ open, onClose, modes }: { open: boolean; onClose: () => void; modes: ModeInfo[] }) {
+export type HistoryView = 'replay' | 'ata'
+
+export function HistoryDialog({
+  open,
+  onClose,
+  modes,
+  start = 'replay',
+}: {
+  open: boolean
+  onClose: () => void
+  modes: ModeInfo[]
+  /** 'ata': abre direto na ata da call de agora */
+  start?: HistoryView
+}) {
   const [list, setList] = useState<CallSummary[] | null>(null)
   const [sel, setSel] = useState<string | null>(null)
   const [rec, setRec] = useState<CallRecord | null>(null)
@@ -65,12 +79,15 @@ export function HistoryDialog({ open, onClose, modes }: { open: boolean; onClose
     const l = await api.listCalls()
     setList(l)
     setSel((cur) => (cur && l.some((c) => c.id === cur) ? cur : (l[0]?.id ?? null)))
+    return l
   }, [])
 
   useEffect(() => {
-    if (open) void refresh()
-    else setRec(null)
-  }, [open, refresh])
+    if (!open) return setRec(null)
+    void refresh().then((l) => start === 'ata' && setSel(l.find((c) => c.live)?.id ?? l[0]?.id ?? null))
+  }, [open, refresh, start])
+
+  const onMinutes = useCallback((md: string) => setRec((r) => (r ? { ...r, minutes: md } : r)), [])
 
   useEffect(() => {
     if (!open || !sel) return setRec(null)
@@ -184,7 +201,14 @@ export function HistoryDialog({ open, onClose, modes }: { open: boolean; onClose
 
               <div className="flex min-w-0 flex-1">
                 {rec ? (
-                  <Replay key={rec.id} rec={rec} modeName={modeName} onDelete={() => void remove(rec.id)} />
+                  <Replay
+                    key={rec.id}
+                    rec={rec}
+                    modeName={modeName}
+                    initialView={start}
+                    onMinutes={onMinutes}
+                    onDelete={() => void remove(rec.id)}
+                  />
                 ) : (
                   <div className="grid flex-1 place-items-center text-sm text-zinc-500 dark:text-zinc-400">
                     {list?.length ? 'Escolha uma call na lista.' : ''}
@@ -199,7 +223,20 @@ export function HistoryDialog({ open, onClose, modes }: { open: boolean; onClose
   )
 }
 
-function Replay({ rec, modeName, onDelete }: { rec: CallRecord; modeName: (id: string) => string; onDelete: () => void }) {
+function Replay({
+  rec,
+  modeName,
+  initialView,
+  onMinutes,
+  onDelete,
+}: {
+  rec: CallRecord
+  modeName: (id: string) => string
+  initialView: HistoryView
+  onMinutes: (md: string) => void
+  onDelete: () => void
+}) {
+  const [view, setView] = useState<HistoryView>(initialView)
   const tabIds = useMemo(() => [...new Set(rec.versions.map((v) => v.tabId))], [rec])
   const [tab, setTab] = useState(tabIds[0] ?? '')
   const versions = useMemo(() => rec.versions.filter((v) => v.tabId === tab), [rec, tab])
@@ -248,6 +285,8 @@ function Replay({ rec, modeName, onDelete }: { rec: CallRecord; modeName: (id: s
     const el = listRef.current?.parentElement
     if (el) el.scrollTop = el.scrollHeight
   }, [lines.length])
+
+  if (view === 'ata') return <MinutesView rec={rec} onBack={() => setView('replay')} onSaved={onMinutes} />
 
   return (
     <>
@@ -321,6 +360,14 @@ function Replay({ rec, modeName, onDelete }: { rec: CallRecord; modeName: (id: s
             )}
           </span>
           <span className="mx-1 h-4 w-px bg-zinc-200 dark:bg-white/10" />
+          <button
+            type="button"
+            onClick={() => setView('ata')}
+            className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-zinc-600 hover:bg-zinc-900/5 dark:text-zinc-300 dark:hover:bg-white/6"
+          >
+            <NotebookPen className="size-3.5" />
+            {rec.minutes ? 'Ver ata' : 'Gerar ata'}
+          </button>
           <button
             type="button"
             onClick={() => (armed ? onDelete() : setArmed(true))}
