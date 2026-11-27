@@ -1,4 +1,4 @@
-import { Cpu, Eraser, Pause, PencilLine, PictureInPicture2, Play, Radio, RefreshCw, Settings, Zap } from 'lucide-react'
+import { Cpu, Eraser, History, Pause, PencilLine, PictureInPicture2, Play, Radio, RefreshCw, Settings, Zap } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useState } from 'react'
 import type { AppState } from '@shared/types'
@@ -60,9 +60,10 @@ interface TitleBarProps {
   brand?: boolean // falso durante a abertura: o icone e o nome chegam voando dela
   onSettings: () => void
   onSession: () => void
+  onHistory: () => void
 }
 
-export function TitleBar({ state, brand = true, onSettings, onSession }: TitleBarProps) {
+export function TitleBar({ state, brand = true, onSettings, onSession, onHistory }: TitleBarProps) {
   const sharing = state.share.state === 'on' || state.share.state === 'starting'
   const device = state.engine.device
   return (
@@ -142,6 +143,9 @@ export function TitleBar({ state, brand = true, onSettings, onSession }: TitleBa
               </motion.span>
             )}
           </AnimatePresence>
+        </IconButton>
+        <IconButton label="Histórico das calls" onClick={onHistory}>
+          <History className="size-4" />
         </IconButton>
         <IconButton label="Configurações" onClick={onSettings}>
           <Settings className="size-4" />

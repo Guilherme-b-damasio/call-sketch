@@ -36,6 +36,8 @@ interface CanvasProps {
   empty?: EmptyText
   /** Erro de sintaxe do diagrama; no app vai pro Claude corrigir. */
   onRenderError?: (error: string) => void
+  /** So olhar (replay do historico): sem arrastar nem editar. */
+  readOnly?: boolean
 }
 
 const reportToApp = (error: string) => void window.api?.renderError(error)
@@ -44,7 +46,7 @@ const reportToApp = (error: string) => void window.api?.renderError(error)
  * Area do diagrama. Fluxograma, mapa mental e diagrama de dados abrem no editor visual (caixas que
  * da pra arrastar e editar); os outros tipos sao desenhados pelo mermaid, com zoom e arrastar.
  */
-export function Canvas({ state, modeName, onSettings, compact = false, empty, onRenderError = reportToApp }: CanvasProps) {
+export function Canvas({ state, modeName, onSettings, compact = false, empty, onRenderError = reportToApp, readOnly = false }: CanvasProps) {
   const dark = useDark()
   const [parsed, setParsed] = useState<{ code: string; graph: Graph | null } | null>(null)
   const [svgShown, setSvgShown] = useState(false)
@@ -65,7 +67,7 @@ export function Canvas({ state, modeName, onSettings, compact = false, empty, on
 
   const graph = state.mermaid && parsed?.graph ? parsed.graph : null
   const shown = !!graph || svgShown
-  const editable = !compact && !!window.api?.editDiagram
+  const editable = !compact && !readOnly && !!window.api?.editDiagram
   const fileName = `call-sketch-${state.activeMode || 'diagrama'}`
 
   return (
