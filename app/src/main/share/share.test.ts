@@ -31,12 +31,75 @@ function get(port: number, path: string): Promise<{ status: number; body: string
   })
 }
 
+function post(port: number, path: string, body: string, type = 'application/json'): Promise<{ status: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    request({ host: '127.0.0.1', port, path, method: 'POST', headers: { 'Content-Type': type } }, (res) => {
+      let data = ''
+      res.on('data', (c) => (data += c))
+      res.on('end', () => resolve({ status: res.statusCode ?? 0, body: data }))
+    })
+      .on('error', reject)
+      .end(body)
+  })
+}
+
 async function poll(port: number, prefix: string, since: number, id = 'a'): Promise<StateReply> {
   const r = await get(port, `${prefix}state?since=${since}&id=${id}`)
   return JSON.parse(r.body) as StateReply
 }
 
 const VIEW: ShareView = { mermaid: 'flowchart TD\n A-->B', version: 3, activeMode: 'processo', modeName: 'Processo', activity: 'idle', paused: false }
+
+describe('sugestoes de quem assiste', () => {
+  let server: SessionServer | null = null
+  afterEach(async () => {
+    await server?.stop()
+    server = null
+  })
+
+  it('chega pra quem compartilha, com limite, e quem mandou ve o resultado', async () => {
+    server = new SessionServer(webDir())
+    const port = await server.start('127.0.0.1')
+    const p = server.prefix
+    const got: { id: string; name: string; text: string }[] = []
+    server.on('suggestion', (s) => got.push(s))
+    const send = (o: unknown, type?: string) => post(port, `${p}suggest`, JSON.stringify(o), type)
+
+    expect((await send({ id: 'v1', text: 'oi' }, 'text/plain')).status).toBe(415) // form de outro site nao passa
+    expect((await send({ id: 'v1', text: '   ' })).status).toBe(400)
+    expect((await post(port, '/s/chute/suggest', '{}')).status).toBe(404)
+    expect((await post(port, `${p}suggest`, 'x'.repeat(5000))).status).toBe(413)
+
+    const ok = await send({ id: 'v1', name: ' Ana\u0000 ', text: 'falta o\ncache   redis' })
+    expect(ok.status).toBe(200)
+    expect(got).toEqual([{ id: JSON.parse(ok.body).id, name: 'Ana', text: 'falta o cache redis' }])
+    expect((await send({ id: 'v1', text: 'outra logo em seguida' })).status).toBe(429)
+
+    const mine = await poll(port, p, -1, 'v1')
+    expect(mine.suggest).toBe(true)
+    expect(mine.mine).toEqual([{ id: got[0].id, text: 'falta o cache redis', status: 'pendente' }])
+    expect((await poll(port, p, -1, 'v2')).mine).toEqual([]) // nao ve a dos outros
+
+    const waiting = poll(port, p, mine.seq, 'v1') // a decisao libera quem estava esperando
+    await new Promise((r) => setTimeout(r, 150)) // da tempo do pedido chegar e ficar esperando
+    server.resolve(got[0].id, 'aceita')
+    expect((await waiting).mine[0].status).toBe('aceita')
+
+    server.setAccepting(false)
+    expect((await poll(port, p, -1, 'v3')).suggest).toBe(false)
+    expect((await send({ id: 'v3', text: 'posso?' })).status).toBe(403)
+  })
+
+  it('aceitar vira nota pra IA e a fila nao repete', () => {
+    const store = new Store()
+    expect(store.addSuggestion({ id: 's1', name: 'Ana', text: 'Faltou o Redis' })).toBe(true)
+    expect(store.addSuggestion({ id: 's2', name: 'Bia', text: 'faltou o redis' })).toBe(false)
+    expect(store.resolveSuggestion('s1', true)?.text).toBe('Faltou o Redis')
+    expect(store.state.suggestions).toEqual([])
+    expect(store.state.lines.at(-1)).toMatchObject({ who: 'nota', text: 'Sugestão de Ana: Faltou o Redis' })
+    expect(store.resolveSuggestion('s1', true)).toBeNull()
+  })
+})
 
 describe('servidor da sessao', () => {
   let server: SessionServer | null = null
@@ -69,7 +132,7 @@ describe('servidor da sessao', () => {
     const t = Date.now()
     const r = await poll(port, server.prefix, -1)
     expect(Date.now() - t).toBeLessThan(500)
-    expect(r).toEqual({ seq: 1, view: VIEW, ended: false })
+    expect(r).toMatchObject({ seq: 1, view: VIEW, ended: false })
   })
 
   it('segura a consulta e libera assim que sai desenho novo', async () => {

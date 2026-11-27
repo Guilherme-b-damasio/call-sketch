@@ -47,6 +47,7 @@ const share = new ShareSession(store, {
   webDir: join(__dirname, '../renderer'), // o renderer compilado (tem a viewer.html)
   binDir: join(app.getPath('userData'), 'bin'),
   modeName: (id) => modes.get(id)?.name ?? id,
+  suggestions: () => settings.suggestions,
 })
 
 function getLLM(): LLM {
@@ -322,6 +323,7 @@ function applySettings(next: Settings): void {
   llm = null // recria com o backend/modelo novo
   store.setError(null)
   validator.start()
+  share.refreshSuggestions()
   const engineKeys: (keyof Settings)[] = ['whisper', 'language', 'mic', 'pythonPath']
   if (engineKeys.some((k) => prev[k] !== next[k])) startEngine()
 }
@@ -369,6 +371,7 @@ ipcMain.handle('render:error', (_, err: string | null) => store.setRenderError(e
 ipcMain.handle('overlay:toggle', () => toggleOverlay())
 ipcMain.handle('share:start', () => share.start())
 ipcMain.handle('share:stop', () => share.stop())
+ipcMain.handle('suggestion:resolve', (_, id: string, accept: boolean) => share.resolve(String(id), accept === true))
 ipcMain.handle('session:join', (_, link: string) => joinSession(link))
 ipcMain.handle('viewer:float', (e, on: boolean) => {
   const win = BrowserWindow.fromWebContents(e.sender)

@@ -1,8 +1,9 @@
 /** Estado da sessao no processo principal. Avisa a interface a cada mudanca (agrupado). */
 import { EventEmitter } from 'node:events'
-import { AUTO, type AppState, type Check, type DiagramEdit, type EngineInfo, type Line, type ShareInfo, type Tab } from '@shared/types'
+import { AUTO, type AppState, type Check, type Suggestion, type DiagramEdit, type EngineInfo, type Line, type ShareInfo, type Tab } from '@shared/types'
 
 const MAX_LINES = 1000
+const MAX_SUGGESTIONS = 30
 const EMIT_DELAY_MS = 40
 
 function hms(d = new Date()): string {
@@ -41,6 +42,7 @@ export class Store extends EventEmitter<{ change: [AppState]; redraw: []; line: 
       activeTab: 't1',
       layout: {},
       locked: [],
+      suggestions: [],
     }
   }
 
@@ -80,6 +82,28 @@ export class Store extends EventEmitter<{ change: [AppState]; redraw: []; line: 
   removeLines(ids: number[]): void {
     const drop = new Set(ids)
     this.update({ lines: this.s.lines.filter((l) => !drop.has(l.id)) })
+  }
+
+  /** Sugestao de quem assiste. Falso = fila cheia ou repetida. */
+  addSuggestion(sug: Omit<Suggestion, 't'>): boolean {
+    const q = this.s.suggestions
+    if (q.length >= MAX_SUGGESTIONS) return false
+    if (q.some((x) => x.text.toLowerCase() === sug.text.toLowerCase())) return false
+    this.update({ suggestions: [...q, { ...sug, t: hms() }] })
+    return true
+  }
+
+  /** Tira da fila; aceita vira nota (a IA leva em conta no proximo desenho). */
+  resolveSuggestion(id: string, accept: boolean): Suggestion | null {
+    const sug = this.s.suggestions.find((x) => x.id === id)
+    if (!sug) return null
+    this.update({ suggestions: this.s.suggestions.filter((x) => x.id !== id) })
+    if (accept) this.addNote(sug.name ? `Sugestão de ${sug.name}: ${sug.text}` : `Sugestão: ${sug.text}`)
+    return sug
+  }
+
+  clearSuggestions(): void {
+    if (this.s.suggestions.length) this.update({ suggestions: [] })
   }
 
   addChecks(items: Omit<Check, 'id' | 't'>[]): void {
