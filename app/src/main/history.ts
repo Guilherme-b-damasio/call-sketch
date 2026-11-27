@@ -143,6 +143,21 @@ export class History {
     return id === this.cur.id ? structuredClone(this.cur) : this.read(id)
   }
 
+  /** Guarda a ata gerada junto da call. */
+  setMinutes(id: string, md: string): void {
+    if (id === this.cur.id) {
+      this.cur.minutes = md
+      this.flush()
+      return
+    }
+    const r = this.read(id)
+    if (!r || !this.enabled()) return
+    r.minutes = md
+    const file = join(this.dir, `${id}.json`)
+    writeFileSync(`${file}.tmp`, JSON.stringify(r))
+    renameSync(`${file}.tmp`, file)
+  }
+
   delete(id: string): void {
     if (!ID.test(id)) return
     rmSync(join(this.dir, `${id}.json`), { force: true })

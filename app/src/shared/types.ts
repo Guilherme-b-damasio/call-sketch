@@ -61,6 +61,7 @@ export interface CallRecord {
   lines: Line[]
   checks: Check[]
   versions: DiagramVersion[]
+  minutes?: string // ata em Markdown, se ja foi gerada
 }
 
 export interface CallSummary {
@@ -285,6 +286,10 @@ export interface Api {
   getCall(id: string): Promise<CallRecord | null>
   deleteCall(id: string): Promise<void>
   openHistoryFolder(): Promise<void>
+  /** Gera (pela IA) e guarda a ata da call em Markdown. */
+  makeMinutes(id: string): Promise<string>
+  /** Guarda a ata editada e abre o "Salvar como" do .md; volta o caminho ou null. */
+  saveMinutes(id: string, md: string, name: string): Promise<string | null>
   redraw(): Promise<void>
   reset(): Promise<void>
   note(text: string): Promise<void>
