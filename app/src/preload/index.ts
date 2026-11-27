@@ -13,6 +13,7 @@ const api: Api = {
   selectTab: (id) => ipcRenderer.invoke('tab:select', id),
   closeTab: (id) => ipcRenderer.invoke('tab:close', id),
   editDiagram: (edit) => ipcRenderer.invoke('diagram:edit', edit),
+  saveExport: (req) => ipcRenderer.invoke('export:save', req),
   redraw: () => ipcRenderer.invoke('redraw'),
   reset: () => ipcRenderer.invoke('reset'),
   note: (text) => ipcRenderer.invoke('note', text),
