@@ -62,6 +62,7 @@ Para todo mundo da call acompanhar o desenho ao vivo: clique no ícone de transm
 - **Quem abre no navegador** vê o diagrama atualizando sozinho, sem instalar nada.
 - **Quem tem o Call Sketch instalado** pode clicar em "Abrir no app" na página, ou colar o link em **Entrar numa sessão**. Enquanto assiste, a escuta dessa pessoa fica pausada (não gasta a IA dela).
 - **Flutuar** deixa o diagrama numa janelinha sempre por cima da call. No app instalado funciona sempre; no navegador, no Chrome e no Edge do computador pelo link público (https). Firefox, Safari e celular ainda não têm esse recurso.
+- **Sugerir:** quem assiste pode mandar uma sugestão pelo botão da página ("faltou o cache entre a API e o banco"). Ela aparece pra você no painel da direita com **Aceitar** e **Recusar**. Aceitar vira uma nota que a IA usa no próximo desenho, e quem mandou vê se foi aceita. Tem limite de envio, e dá pra desligar em Configurações → Sessão compartilhada.
 - Só o **desenho** é compartilhado. A transcrição da conversa nunca sai do seu PC.
 
 Não tem servidor nosso no meio. O seu próprio app serve a página, e um túnel grátis da Cloudflare (o `cloudflared`, baixado sozinho no primeiro uso, sem conta nem cadastro) deixa o link acessível pela internet. Também aparece um link da rede local, para quem está no mesmo Wi-Fi ou escritório. O link tem um código aleatório, muda a cada sessão e para de funcionar quando você para de compartilhar ou fecha o app.

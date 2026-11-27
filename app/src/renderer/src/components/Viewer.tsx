@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom'
 import { AUTO, type AppState, type ShareView } from '@shared/types'
 import { Canvas, type EmptyText } from './Canvas'
 import { LogoMark } from './Logo'
+import { type MySuggestion, SuggestBox } from './SuggestBox'
 import { cx, ModeIcon, SoundBars } from './ui'
 
 type Link = 'connecting' | 'live' | 'lost' | 'ended'
@@ -17,9 +18,12 @@ interface StateReply {
   seq: number
   view: ShareView | null
   ended: boolean
+  suggest?: boolean
+  mine?: MySuggestion[]
 }
 
-const viewerId = Math.random().toString(36).slice(2, 12) // so pra contar quem esta assistindo
+// so pra contar quem esta assistindo e saber quais sugestoes sao suas
+const viewerId = Math.random().toString(36).slice(2, 12)
 
 /** No app: o preload da janela de quem assiste so sabe deixar a janela pequena e por cima. */
 interface ViewerBridge {
@@ -65,9 +69,11 @@ function useFloat() {
 }
 
 /** Pergunta "tem desenho novo?" em sequencia; o host segura a pergunta ate ter novidade. */
-function useSession(): { view: ShareView | null; link: Link } {
+function useSession() {
   const [view, setView] = useState<ShareView | null>(null)
   const [link, setLink] = useState<Link>('connecting')
+  const [suggest, setSuggest] = useState(false)
+  const [mine, setMine] = useState<MySuggestion[]>([])
   useEffect(() => {
     const ctrl = new AbortController()
     let seq = -1
@@ -79,8 +85,11 @@ function useSession(): { view: ShareView | null; link: Link } {
           const reply = (await res.json()) as StateReply
           if (reply.ended) {
             setLink('ended')
+            setSuggest(false)
             return
           }
+          setSuggest(!!reply.suggest)
+          if (reply.mine) setMine(reply.mine)
           if (reply.seq !== seq) {
             seq = reply.seq
             setView(reply.view)
@@ -95,7 +104,7 @@ function useSession(): { view: ShareView | null; link: Link } {
     })()
     return () => ctrl.abort()
   }, [])
-  return { view, link }
+  return { view, link, suggest, mine, setMine }
 }
 
 /** Monta um AppState so com o que a area de desenho usa. */
@@ -118,6 +127,7 @@ function toState(view: ShareView | null): AppState {
     tabs: [],
     layout: view?.layout ?? {},
     locked: [],
+    suggestions: [],
     activeTab: '',
   }
 }
@@ -131,7 +141,7 @@ function emptyText(link: Link, view: ShareView | null): EmptyText {
 }
 
 export function Viewer() {
-  const { view, link } = useSession()
+  const { view, link, suggest, mine, setMine } = useSession()
   const state = useMemo(() => toState(view), [view])
   const empty = emptyText(link, view)
   const float = useFloat()
@@ -163,6 +173,7 @@ export function Viewer() {
           </span>
         )}
         <span className="ml-auto" />
+        {suggest && link === 'live' && !float.compact && <SuggestBox viewerId={viewerId} mine={mine} onSent={setMine} />}
         {float.canFloat && <FloatButton floating={float.floating} onClick={() => void float.toggle()} />}
         {!insideApp && (
           <a

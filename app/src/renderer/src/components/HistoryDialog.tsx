@@ -54,6 +54,7 @@ function replayState(rec: CallRecord, tabId: string, idx: number): AppState {
     activeTab: `replay-${rec.id}-${tabId}`,
     layout: v?.layout ?? {},
     locked: [],
+    suggestions: [],
   }
 }
 

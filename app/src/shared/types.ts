@@ -121,6 +121,7 @@ export interface AppState {
   activeTab: string
   layout: Layout // da aba ativa
   locked: string[] // da aba ativa
+  suggestions: Suggestion[] // de quem assiste, esperando aceitar/recusar
 }
 
 /** O que quem assiste a sessao recebe (so o desenho, nunca a conversa). */
@@ -135,6 +136,16 @@ export interface ShareView {
 }
 
 export type ShareState = 'off' | 'starting' | 'on' | 'error'
+
+/** Sugestao mandada por quem assiste; so vira nota quando quem compartilha aceita. */
+export interface Suggestion {
+  id: string
+  name: string // pode vir vazio
+  text: string
+  t: string // HH:MM:SS
+}
+
+export type SuggestionStatus = 'pendente' | 'aceita' | 'recusada'
 
 export interface ShareInfo {
   state: ShareState
@@ -162,6 +173,7 @@ export interface Settings {
   language: string
   pythonPath: string // vazio = automatico
   history: boolean // guarda as calls no PC pra rever depois
+  suggestions: boolean // quem assiste a sessao pode mandar sugestoes
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -181,6 +193,7 @@ export const DEFAULT_SETTINGS: Settings = {
   language: 'pt',
   pythonPath: '',
   history: true,
+  suggestions: true,
 }
 
 export interface LLMPreset {
@@ -299,6 +312,8 @@ export interface Api {
   openModesFolder(): Promise<void>
   startShare(): Promise<void>
   stopShare(): Promise<void>
+  /** Aceitar vira nota pra IA; recusar so descarta. Quem mandou fica sabendo. */
+  resolveSuggestion(id: string, accept: boolean): Promise<void>
   /** Abre a sessao de outra pessoa numa janela (aceita o link https ou callsketch://). */
   joinSession(link: string): Promise<void>
   onState(cb: (s: AppState) => void): () => void

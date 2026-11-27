@@ -53,7 +53,7 @@ export class ShareSession {
 
   constructor(
     private readonly store: Store,
-    private readonly opts: { webDir: string; binDir: string; modeName: (id: string) => string },
+    private readonly opts: { webDir: string; binDir: string; modeName: (id: string) => string; suggestions?: () => boolean },
   ) {
     store.on('change', (s) => this.push(s))
   }
@@ -72,6 +72,10 @@ export class ShareSession {
     try {
       const port = await server.start()
       server.on('viewers', (n) => this.store.setShare({ viewers: n }))
+      server.on('suggestion', (s) => {
+        if (!this.store.addSuggestion(s)) server.resolve(s.id, 'recusada') // fila cheia ou repetida
+      })
+      server.setAccepting(this.opts.suggestions?.() ?? true)
       this.push(this.store.state)
       const lan = lanAddress()
       const lanUrl = lan ? `http://${lan}:${port}${server.prefix}` : undefined
@@ -106,7 +110,21 @@ export class ShareSession {
     const server = this.server
     this.server = null
     await server?.stop()
+    this.store.clearSuggestions()
     if (reset) this.store.setShare({ state: 'off', msg: undefined, publicUrl: undefined, lanUrl: undefined, viewers: 0 })
+  }
+
+  /** Quem compartilha aceitou ou recusou uma sugestao. */
+  resolve(id: string, accept: boolean): void {
+    if (!this.store.resolveSuggestion(id, accept)) return
+    this.server?.resolve(id, accept ? 'aceita' : 'recusada')
+  }
+
+  /** Configuracao mudou: liga/desliga o campo de sugestao de quem assiste. */
+  refreshSuggestions(): void {
+    const on = this.opts.suggestions?.() ?? true
+    this.server?.setAccepting(on)
+    if (!on) for (const s of this.store.state.suggestions) this.resolve(s.id, false)
   }
 
   private onTunnelLost(): void {
