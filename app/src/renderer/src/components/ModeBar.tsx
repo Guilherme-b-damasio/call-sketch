@@ -2,15 +2,17 @@ import { motion } from 'motion/react'
 import { memo } from 'react'
 import { AUTO, type ModeInfo } from '@shared/types'
 import { api } from '../hooks'
+import { NewTabButton } from './Tabs'
 import { cx, ModeIcon } from './ui'
 
 interface Props {
   modes: ModeInfo[]
   mode: string
   activeMode: string
+  single?: boolean // so uma aba: o "+ Diagrama" fica aqui
 }
 
-export const ModeBar = memo(function ModeBar({ modes, mode, activeMode }: Props) {
+export const ModeBar = memo(function ModeBar({ modes, mode, activeMode, single = true }: Props) {
   const all = [{ id: AUTO, name: 'Automático', description: 'A IA escolhe pelo assunto da conversa' }, ...modes]
   return (
     <nav
@@ -52,6 +54,12 @@ export const ModeBar = memo(function ModeBar({ modes, mode, activeMode }: Props)
           </button>
         )
       })}
+      {single && (
+        <>
+          <span className="ml-auto" />
+          <NewTabButton modes={modes} />
+        </>
+      )}
     </nav>
   )
 })

@@ -39,6 +39,14 @@ export interface EngineInfo {
 
 export type Activity = 'idle' | 'drawing' | 'checking'
 
+/** Um diagrama da call. Varios podem existir lado a lado (abas), todos da mesma conversa. */
+export interface Tab {
+  id: string
+  mode: string // "auto" ou id do modo
+  activeMode: string // o que esta desenhado
+  mermaid: string
+}
+
 export interface AppState {
   lines: Line[]
   checks: Check[]
@@ -54,6 +62,9 @@ export interface AppState {
   engine: EngineInfo
   lastDrawAt: number | null
   share: ShareInfo
+  // mermaid/mode/activeMode/renderError acima sao sempre os da aba ativa
+  tabs: Tab[]
+  activeTab: string
 }
 
 /** O que quem assiste a sessao recebe (so o desenho, nunca a conversa). */
@@ -207,6 +218,9 @@ export interface Api {
   listModels(s: Settings): Promise<string[]>
   testLLM(s: Settings): Promise<LLMTest>
   setMode(mode: string): Promise<void>
+  addTab(mode: string): Promise<void>
+  selectTab(id: string): Promise<void>
+  closeTab(id: string): Promise<void>
   redraw(): Promise<void>
   reset(): Promise<void>
   note(text: string): Promise<void>

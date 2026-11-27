@@ -142,6 +142,66 @@ describe('desenhista', () => {
     expect(store.state.lines).toEqual([])
   })
 
+  it('cada aba guarda o seu diagrama', () => {
+    const store = new Store()
+    store.setDiagram('flowchart TD\n A-->B', 'processo')
+    const first = store.state.activeTab
+    const second = store.addTab('dados')
+    expect(store.state.activeTab).toBe(second)
+    expect(store.state.mermaid).toBe('')
+    expect(store.state.mode).toBe('dados')
+    store.setDiagram('erDiagram\n A ||--o{ B : tem', 'dados')
+    store.selectTab(first)
+    expect(store.state.mermaid).toBe('flowchart TD\n A-->B')
+    expect(store.state.activeMode).toBe('processo')
+    expect(store.state.tabs.map((t) => t.mermaid)).toEqual(['flowchart TD\n A-->B', 'erDiagram\n A ||--o{ B : tem'])
+    store.closeTab(first)
+    expect(store.state.tabs).toHaveLength(1)
+    expect(store.state.activeTab).toBe(second)
+    expect(store.state.mermaid).toContain('erDiagram')
+    store.closeTab(second) // a ultima aba nao fecha
+    expect(store.state.tabs).toHaveLength(1)
+  })
+
+  it('aba nova desenha a conversa inteira no modo dela', async () => {
+    const { sk, store, llm } = sketcher('```mermaid\nerDiagram\n A ||--o{ B : tem\n```')
+    store.addLine(line('call', 'o cliente tem varios pedidos'))
+    await sk.step()
+    expect(llm.calls).toHaveLength(1)
+    expect(await sk.step()).toBe(false) // nada novo na mesma aba
+    store.addTab('dados')
+    expect(await sk.step()).toBe(true)
+    expect(llm.calls[1].user).toContain('o cliente tem varios pedidos')
+    expect(store.state.mermaid).toContain('erDiagram')
+  })
+
+  it('trocar de aba no meio de um desenho manda o desenho para a aba que pediu', async () => {
+    const { sk, store, llm } = sketcher('')
+    let answer!: () => void
+    llm.ask = async () => {
+      await new Promise<void>((r) => (answer = r))
+      return '```mermaid\nflowchart TD\n Primeira-->Aba\n```'
+    }
+    store.addLine(line('call', 'primeiro valida, depois salva'))
+    const first = store.state.activeTab
+    const drawing = sk.step()
+    await vi.waitFor(() => expect(answer).toBeTypeOf('function'))
+    store.addTab('dados')
+    answer()
+    await drawing
+    expect(store.state.mermaid).toBe('') // a aba na tela continua vazia
+    expect(store.state.tabs.find((t) => t.id === first)?.mermaid).toContain('Primeira-->Aba')
+  })
+
+  it('limpar volta para uma aba so', () => {
+    const store = new Store()
+    store.addTab('dados')
+    store.addTab('processo')
+    store.reset()
+    expect(store.state.tabs).toHaveLength(1)
+    expect(store.state.tabs[0].id).toBe(store.state.activeTab)
+  })
+
   it('nota do usuario dispara um desenho na hora', async () => {
     const { store, llm } = sketcher('```mermaid\nflowchart TD\n A-->B\n```')
     store.addNote('desenha um fluxo')

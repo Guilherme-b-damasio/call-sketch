@@ -14,6 +14,7 @@ export class Store extends EventEmitter<{ change: [AppState]; redraw: []; line: 
   private resets = 0
   private seq = 1_000_000 // ids das notas/validacoes (as falas usam os ids do motor)
   private timer: NodeJS.Timeout | null = null
+  private tabSeq = 1
 
   constructor(mode = AUTO) {
     super()
@@ -32,6 +33,8 @@ export class Store extends EventEmitter<{ change: [AppState]; redraw: []; line: 
       engine: { state: 'starting', msg: 'iniciando...' },
       lastDrawAt: null,
       share: { state: 'off', viewers: 0 },
+      tabs: [{ id: 't1', mode, activeMode: mode === AUTO ? '' : mode, mermaid: '' }],
+      activeTab: 't1',
     }
   }
 
@@ -40,7 +43,14 @@ export class Store extends EventEmitter<{ change: [AppState]; redraw: []; line: 
   }
 
   private update(patch: Partial<AppState>): void {
-    this.s = { ...this.s, ...patch }
+    const s = { ...this.s, ...patch }
+    // a aba ativa espelha os campos do topo
+    s.tabs = s.tabs.map((t) =>
+      t.id === s.activeTab && (t.mode !== s.mode || t.activeMode !== s.activeMode || t.mermaid !== s.mermaid)
+        ? { ...t, mode: s.mode, activeMode: s.activeMode, mermaid: s.mermaid }
+        : t,
+    )
+    this.s = s
     if (!this.timer) {
       this.timer = setTimeout(() => {
         this.timer = null
@@ -70,7 +80,19 @@ export class Store extends EventEmitter<{ change: [AppState]; redraw: []; line: 
     this.update({ checks: [...this.s.checks, ...items.map((c) => ({ ...c, id: this.seq++, t }))] })
   }
 
-  setDiagram(code: string, activeMode: string | null): void {
+  /**
+   * Desenho novo. `tabId` e a aba que pediu: se a pessoa trocou de aba enquanto a IA desenhava,
+   * o desenho vai para a aba certa, e nao para a que esta na tela.
+   */
+  setDiagram(code: string, activeMode: string | null, tabId = this.s.activeTab): void {
+    if (tabId !== this.s.activeTab) {
+      if (!code) return
+      this.update({
+        tabs: this.s.tabs.map((t) => (t.id === tabId ? { ...t, mermaid: code, activeMode: activeMode ?? t.activeMode } : t)),
+        lastDrawAt: Date.now(),
+      })
+      return
+    }
     const changed = !!code && code !== this.s.mermaid
     this.update({
       mermaid: changed ? code : this.s.mermaid,
@@ -85,6 +107,36 @@ export class Store extends EventEmitter<{ change: [AppState]; redraw: []; line: 
   setMode(mode: string): void {
     this.update({ mode, activeMode: mode === AUTO ? this.s.activeMode : mode })
     this.emit('redraw')
+  }
+
+  /** Abre uma aba nova (outro diagrama da mesma conversa) e vai para ela. */
+  addTab(mode: string): string {
+    const id = `t${++this.tabSeq}`
+    this.update({ tabs: [...this.s.tabs, { id, mode, activeMode: mode === AUTO ? '' : mode, mermaid: '' }] })
+    this.selectTab(id)
+    return id
+  }
+
+  selectTab(id: string): void {
+    const tab = this.s.tabs.find((t) => t.id === id)
+    if (!tab || id === this.s.activeTab) return
+    this.update({
+      activeTab: id,
+      mode: tab.mode,
+      activeMode: tab.activeMode,
+      mermaid: tab.mermaid,
+      version: this.s.version + 1, // a tela redesenha mesmo se as duas abas tiverem a mesma versao
+      renderError: null,
+    })
+    if (!tab.mermaid) this.emit('redraw') // aba vazia: desenha a conversa ate aqui
+  }
+
+  closeTab(id: string): void {
+    const i = this.s.tabs.findIndex((t) => t.id === id)
+    if (i < 0 || this.s.tabs.length === 1) return
+    const next = this.s.tabs[i + 1] ?? this.s.tabs[i - 1]
+    if (id === this.s.activeTab) this.selectTab(next.id)
+    this.update({ tabs: this.s.tabs.filter((t) => t.id !== id) })
   }
 
   setRenderError(err: string | null): void {
@@ -121,8 +173,11 @@ export class Store extends EventEmitter<{ change: [AppState]; redraw: []; line: 
     return this.resets
   }
 
+  /** Comeca do zero: sem conversa, sem notas e so com uma aba vazia no modo atual. */
   reset(): void {
     this.resets++
+    const id = `t${++this.tabSeq}`
+    const activeMode = this.s.mode === AUTO ? '' : this.s.mode
     this.update({
       lines: [],
       checks: [],
@@ -130,7 +185,9 @@ export class Store extends EventEmitter<{ change: [AppState]; redraw: []; line: 
       version: this.s.version + 1,
       renderError: null,
       error: null,
-      activeMode: this.s.mode === AUTO ? '' : this.s.mode,
+      activeMode,
+      tabs: [{ id, mode: this.s.mode, activeMode, mermaid: '' }],
+      activeTab: id,
     })
   }
 }
