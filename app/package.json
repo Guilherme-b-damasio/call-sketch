@@ -1,7 +1,7 @@
 {
   "name": "call-sketch",
   "productName": "Call Sketch",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Transforma as falas da conversa em diagramas ao vivo com o Claude.",
   "main": "./out/main/index.js",
   "private": true,
