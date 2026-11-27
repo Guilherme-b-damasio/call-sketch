@@ -407,6 +407,12 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
                 </Field>
               </Section>
 
+              <Section title="Sessão compartilhada">
+                <Field label="Sugestões de quem assiste" hint="Quem abre o link pode mandar uma sugestão. Ela só vira nota pra IA se você aceitar.">
+                  <Toggle checked={s.suggestions} onChange={(v) => set('suggestions', v)} label="Sugestões de quem assiste" />
+                </Field>
+              </Section>
+
               <Section title="Histórico">
                 <Field label="Guardar as calls" hint="Conversa e versões do desenho ficam só neste PC, pra rever depois (as 100 últimas).">
                   <Toggle checked={s.history} onChange={(v) => set('history', v)} label="Guardar as calls" />

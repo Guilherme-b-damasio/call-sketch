@@ -1,7 +1,7 @@
-import { CircleQuestionMark, MessageSquareText, SendHorizontal, ShieldCheck, TriangleExclamationPoint } from 'lucide-react'
+import { Check as CheckIcon, CircleQuestionMark, Lightbulb, MessageSquareText, SendHorizontal, ShieldCheck, TriangleExclamationPoint, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { Check, Line } from '@shared/types'
+import type { Check, Line, Suggestion } from '@shared/types'
 import { api } from '../hooks'
 import { cx } from './ui'
 
@@ -166,7 +166,74 @@ function NoteInput() {
   )
 }
 
-export function SidePanel({ lines, checks, checking }: { lines: Line[]; checks: Check[]; checking: boolean }) {
+/** Sugestoes de quem assiste a sessao: so viram nota (e mudam o desenho) se aceitar. */
+function Suggestions({ items }: { items: Suggestion[] }) {
+  return (
+    <AnimatePresence initial={false}>
+      {items.length > 0 && (
+        <motion.section
+          aria-label="Sugestões de quem assiste"
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: 'auto', opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          className="shrink-0 overflow-hidden border-t border-zinc-200/80 dark:border-white/6"
+        >
+          <p className="flex items-center gap-1.5 px-4 pt-2.5 text-[12px] font-semibold text-amber-600 dark:text-amber-400">
+            <Lightbulb className="size-3.5" /> Sugestões de quem assiste
+            <span className="rounded-full bg-amber-500/15 px-1.5 text-[10px]">{items.length}</span>
+          </p>
+          <ul className="max-h-52 space-y-1.5 overflow-y-auto px-3 py-2">
+            <AnimatePresence initial={false}>
+              {items.map((s) => (
+                <motion.li
+                  key={s.id}
+                  layout
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, x: 24 }}
+                  className="rounded-xl border border-amber-500/25 bg-amber-500/6 px-3 py-2"
+                >
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    <span className="font-semibold text-zinc-700 dark:text-zinc-200">{s.name || 'Alguém'}</span> · {s.t.slice(0, 5)}
+                  </p>
+                  <p className="mt-0.5 break-words text-[13px] leading-snug">{s.text}</p>
+                  <div className="mt-1.5 flex gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => void api.resolveSuggestion(s.id, true)}
+                      className="inline-flex items-center gap-1 rounded-lg bg-accent-600 px-2 py-1 text-[12px] font-semibold text-white hover:bg-accent-500"
+                    >
+                      <CheckIcon className="size-3.5" /> Aceitar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void api.resolveSuggestion(s.id, false)}
+                      className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] font-medium text-zinc-600 hover:bg-zinc-900/5 dark:text-zinc-300 dark:hover:bg-white/6"
+                    >
+                      <X className="size-3.5" /> Recusar
+                    </button>
+                  </div>
+                </motion.li>
+              ))}
+            </AnimatePresence>
+          </ul>
+        </motion.section>
+      )}
+    </AnimatePresence>
+  )
+}
+
+export function SidePanel({
+  lines,
+  checks,
+  checking,
+  suggestions = [],
+}: {
+  lines: Line[]
+  checks: Check[]
+  checking: boolean
+  suggestions?: Suggestion[]
+}) {
   const [tab, setTab] = useState<Tab>('conversa')
   const [seen, setSeen] = useState(checks.length)
   useEffect(() => {
@@ -216,6 +283,7 @@ export function SidePanel({ lines, checks, checking }: { lines: Line[]; checks: 
       </div>
 
       {tab === 'conversa' ? <Transcript lines={lines} /> : <Checks checks={checks} checking={checking} />}
+      <Suggestions items={suggestions} />
       <NoteInput />
     </aside>
   )
