@@ -52,6 +52,7 @@ O relógio na barra de cima abre as calls que já passaram. Cada call vai de qua
 
 - Escolha uma call e use **◀ ▶** ou arraste a barra para ver o desenho crescendo, versão por versão. O play toca a call inteira.
 - Ao lado aparece só o que tinha sido falado até aquele momento, e embaixo diz se a versão veio da IA ou foi editada à mão.
+- **Ata:** o caderninho na barra de cima (ou "Gerar ata" no replay) pede pra IA um resumo com decisões, próximos passos e pontos em aberto. O app junta o diagrama final de cada aba (em blocos `mermaid`, que GitHub, Notion e Obsidian desenham), as notas de validação e a transcrição. Dá pra editar o texto, copiar ou salvar como `.md`.
 - Fica tudo **só neste computador** (as 100 calls mais recentes). Dá pra apagar uma call ou desligar o histórico em Configurações.
 
 ## Sessão compartilhada
