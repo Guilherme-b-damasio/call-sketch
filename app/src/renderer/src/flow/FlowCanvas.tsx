@@ -18,7 +18,7 @@ import {
   useNodesStore,
   useViewport,
 } from '@xyflow/react'
-import { Check as CheckIcon, Copy, Download, LockKeyhole, Maximize, Plus, Undo2, Wand2, ZoomIn, ZoomOut } from 'lucide-react'
+import { Check as CheckIcon, Copy, LockKeyhole, Maximize, Plus, Undo2, Wand2, ZoomIn, ZoomOut } from 'lucide-react'
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   addNode,
@@ -34,10 +34,12 @@ import {
   toMermaid,
 } from '@shared/graph'
 import type { Layout } from '@shared/types'
+import { ExportMenu } from '../components/ExportMenu'
 import { cx, IconButton } from '../components/ui'
-import { PALETTE, renderDiagram } from '../mermaid'
+import { type ExportKind, runExport } from '../export'
+import { PALETTE } from '../mermaid'
 import { type Box, computeLayout, groupBoxes } from './layout'
-import { type Actions, type BoxNode, BoxView, EntityView, FlowActions, GroupView, type LinkEdge, LinkView } from './nodes'
+import { type Actions, type BoxNode, BoxView, EntityView, FlowActions, flowTheme, GroupView, type LinkEdge, LinkView } from './nodes'
 
 export interface FlowCanvasProps {
   graph: Graph
@@ -55,30 +57,7 @@ const nodeTypes = { box: BoxView, entity: EntityView, group: GroupView }
 const edgeTypes = { link: LinkView }
 
 function themeVars(dark: boolean): CSSProperties {
-  const v = dark
-    ? {
-        bg: '#0e0e12',
-        fill: '#1d1a2e',
-        stroke: '#8b5cf6',
-        accent: '#8b5cf6',
-        text: '#ececf1',
-        muted: '#a1a1aa',
-        line: '#30303b',
-        edge: '#7c7c8a',
-        group: 'rgb(18 18 24 / 0.55)',
-      }
-    : {
-        bg: '#ffffff',
-        fill: '#f5f3ff',
-        stroke: '#7c3aed',
-        accent: '#7c3aed',
-        text: '#18181b',
-        muted: '#71717a',
-        line: '#d4d4d8',
-        edge: '#71717a',
-        group: 'rgb(250 250 250 / 0.7)',
-      }
-  return Object.fromEntries(Object.entries(v).map(([k, c]) => [`--cs-${k}`, c])) as CSSProperties
+  return Object.fromEntries(Object.entries(flowTheme(dark)).map(([k, c]) => [`--cs-${k}`, c])) as CSSProperties
 }
 
 const roundLayout = (l: Layout): Layout =>
@@ -301,6 +280,7 @@ function Inner(p: FlowCanvasProps) {
   const actions = useMemo<Actions>(
     () => ({
       editable: p.editable,
+      theme: flowTheme(p.dark),
       cancel: () => setEditing(null),
       commit: (kind, id, text) => {
         setEditing(null)
@@ -317,7 +297,7 @@ function Inner(p: FlowCanvasProps) {
         }
       },
     }),
-    [p.editable, edit],
+    [p.editable, p.dark, edit],
   )
 
   const onNodesChange = useCallback(
@@ -407,11 +387,24 @@ function Inner(p: FlowCanvasProps) {
     setTimeout(() => setCopied(false), 1400)
   }
 
-  const saveSvg = async () => {
-    const { svg } = await renderDiagram(sent.current.code, p.dark)
-    const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }))
-    Object.assign(document.createElement('a'), { href: url, download: `${p.fileName}.svg` }).click()
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  /** Exporta o desenho inteiro como esta (com a arrumacao da pessoa), nao so o pedaco na tela. */
+  const exportAs = async (kind: ExportKind) => {
+    const el = box.current?.querySelector<HTMLElement>('.react-flow__viewport')
+    if (!el || !box.current) return false
+    const b = rf.getNodesBounds(rf.getNodes())
+    const pad = 48
+    const w = b.width + pad * 2
+    const h = b.height + pad * 2
+    box.current.classList.add('cs-exporting')
+    try {
+      return await runExport(
+        kind,
+        { el, w, h, dark: p.dark, style: { width: `${w}px`, height: `${h}px`, transform: `translate(${pad - b.x}px, ${pad - b.y}px) scale(1)` } },
+        p.fileName,
+      )
+    } finally {
+      box.current?.classList.remove('cs-exporting')
+    }
   }
 
   return (
@@ -494,9 +487,7 @@ function Inner(p: FlowCanvasProps) {
             <IconButton label="Copiar código Mermaid" onClick={() => void copy()}>
               {copied ? <CheckIcon className="size-4 text-emerald-500" /> : <Copy className="size-4" />}
             </IconButton>
-            <IconButton label="Salvar SVG" onClick={() => void saveSvg()}>
-              <Download className="size-4" />
-            </IconButton>
+            <ExportMenu onExport={exportAs} />
           </div>
         )}
 

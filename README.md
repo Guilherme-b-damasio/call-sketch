@@ -32,7 +32,7 @@ Um app desktop (Electron + React) com o diagrama no centro, a conversa e a valid
 | `Ctrl+Shift+P` | pausa / continua |
 | `Ctrl+Shift+O` | janela flutuante |
 
-No canvas: roda do mouse dá zoom e arrastar o fundo move. Dá pra copiar o código Mermaid ou salvar o SVG. A caixa de texto embaixo da conversa manda notas e correções direto pro desenho.
+No canvas: roda do mouse dá zoom e arrastar o fundo move. Dá pra copiar o código Mermaid ou **exportar** o desenho inteiro em PNG, PDF ou SVG (botão de download na barra; quem assiste pelo navegador baixa PNG e SVG). A caixa de texto embaixo da conversa manda notas e correções direto pro desenho.
 
 ### Editar à mão
 

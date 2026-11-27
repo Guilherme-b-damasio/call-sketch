@@ -1,12 +1,13 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { app, BrowserWindow, globalShortcut, ipcMain, type Rectangle, screen, shell } from 'electron'
-import { AUTO, type DiagramEdit, type Layout, type LLMTest, type Settings } from '@shared/types'
+import { AUTO, type DiagramEdit, type ExportRequest, type Layout, type LLMTest, type Settings } from '@shared/types'
 import appIcon from '../../build/icon.png?asset'
 import { type LLM, makeLLM } from './claude'
 import { listModels } from './openai'
 import { Engine, resolveEngine } from './engine'
 import { loadModes, type Mode, modeInfo } from './modes'
+import { saveExport } from './pdf'
 import { loadSettings, saveSettings } from './settings'
 import { fixShellPath } from './shellPath'
 import { PROTOCOL, parseJoinLink, ShareSession } from './share/session'
@@ -346,6 +347,8 @@ ipcMain.handle('diagram:edit', (_, edit: DiagramEdit) => {
     locked: Array.isArray(edit.locked) ? edit.locked.filter((x) => typeof x === 'string').slice(0, 500) : undefined,
   })
 })
+
+ipcMain.handle('export:save', (e, req: ExportRequest) => saveExport(BrowserWindow.fromWebContents(e.sender), req))
 
 function cleanLayout(raw: Layout): Layout {
   const out: Layout = {}

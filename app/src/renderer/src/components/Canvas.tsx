@@ -1,11 +1,13 @@
-import { Check as CheckIcon, Copy, Download, Maximize, Mic, Settings, ZoomIn, ZoomOut } from 'lucide-react'
+import { Check as CheckIcon, Copy, Maximize, Mic, Settings, ZoomIn, ZoomOut } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { Graph } from '@shared/graph'
 import type { AppState } from '@shared/types'
+import { type ExportKind, runExport } from '../export'
 import { parseGraph } from '../flow/parse'
 import { useDark } from '../hooks'
 import { preload, renderDiagram } from '../mermaid'
+import { ExportMenu } from './ExportMenu'
 import { cx, IconButton, ModeIcon, SoundBars } from './ui'
 
 const FlowCanvas = lazy(() => import('../flow/FlowCanvas').then((m) => ({ default: m.FlowCanvas })))
@@ -242,12 +244,14 @@ function SvgStage({
     setTimeout(() => setCopied(false), 1400)
   }
 
-  const saveSvg = () => {
-    if (!layer) return
-    const url = URL.createObjectURL(new Blob([layer.html], { type: 'image/svg+xml' }))
-    const a = Object.assign(document.createElement('a'), { href: url, download: `${fileName}.svg` })
-    a.click()
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  const exportAs = async (kind: ExportKind) => {
+    const el = stageRef.current?.querySelector<HTMLElement>('.diagram')
+    if (!layer || !el) return false
+    const pad = 40
+    const w = layer.w + pad * 2
+    const h = layer.h + pad * 2
+    const style = { transform: 'none', filter: 'none', opacity: '1', padding: `${pad}px`, boxSizing: 'border-box', width: `${w}px`, height: `${h}px` }
+    return runExport(kind, { el, w, h, dark, style }, fileName, layer.html) // o svg do mermaid ja e vetor
   }
 
   return (
@@ -301,9 +305,7 @@ function SvgStage({
           <IconButton label="Copiar código Mermaid" onClick={() => void copy()}>
             {copied ? <CheckIcon className="size-4 text-emerald-500" /> : <Copy className="size-4" />}
           </IconButton>
-          <IconButton label="Salvar SVG" onClick={saveSvg}>
-            <Download className="size-4" />
-          </IconButton>
+          <ExportMenu onExport={exportAs} />
         </div>
       )}
     </div>

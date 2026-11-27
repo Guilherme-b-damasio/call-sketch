@@ -43,6 +43,15 @@ export type Activity = 'idle' | 'drawing' | 'checking'
 /** Posicao (canto de cima a esquerda) de cada caixa que a pessoa arrumou, pelo id do no. */
 export type Layout = Record<string, { x: number; y: number }>
 
+/** Exportar: PNG (data URL) para png e pdf, texto do SVG para svg, e o tamanho em pixels de tela. */
+export interface ExportRequest {
+  kind: 'png' | 'svg' | 'pdf'
+  data: string
+  w: number
+  h: number
+  name: string
+}
+
 /** Edicao feita a mao no desenho (so o que veio muda). */
 export interface DiagramEdit {
   tabId: string
@@ -238,6 +247,7 @@ export interface Api {
   selectTab(id: string): Promise<void>
   closeTab(id: string): Promise<void>
   editDiagram(edit: DiagramEdit): Promise<void>
+  saveExport(req: ExportRequest): Promise<string | null>
   redraw(): Promise<void>
   reset(): Promise<void>
   note(text: string): Promise<void>

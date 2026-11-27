@@ -100,3 +100,5 @@
 @media (prefers-reduced-motion: reduce) { .cs-pop { animation: none; } }
 .cs-flow .react-flow__attribution { background: transparent; font-size: 9px; opacity: 0.45; }
 .cs-flow .react-flow__attribution a { color: inherit; }
+.cs-exporting .cs-selected { outline: none; }
+.cs-exporting .react-flow__edge.selected .react-flow__edge-path { stroke: var(--cs-edge); }

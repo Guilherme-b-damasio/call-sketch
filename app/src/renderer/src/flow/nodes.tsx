@@ -19,12 +19,22 @@ import type { Card, ErAttr, GEdge, GraphKind, Shape } from '@shared/graph'
 import { cx } from '../components/ui'
 import { ER_HEAD, ER_ROW, TEXT_MAX } from './layout'
 
+/** Cores do editor. Ficam tambem como variaveis CSS, mas o que e pintado em SVG usa a cor direta
+ * (a copia da tela que vira PNG/PDF nao resolve variavel CSS dentro de SVG). */
+export function flowTheme(dark: boolean) {
+  return dark
+    ? { bg: '#0e0e12', fill: '#1d1a2e', stroke: '#8b5cf6', accent: '#8b5cf6', text: '#ececf1', muted: '#a1a1aa', line: '#30303b', edge: '#7c7c8a', group: 'rgb(18 18 24 / 0.55)' }
+    : { bg: '#ffffff', fill: '#f5f3ff', stroke: '#7c3aed', accent: '#7c3aed', text: '#18181b', muted: '#71717a', line: '#d4d4d8', edge: '#71717a', group: 'rgb(250 250 250 / 0.7)' }
+}
+export type FlowTheme = ReturnType<typeof flowTheme>
+
 export interface Actions {
   editable: boolean
+  theme: FlowTheme
   commit(kind: 'node' | 'edge', id: string, text: string): void
   cancel(): void
 }
-export const FlowActions = createContext<Actions>({ editable: false, commit: () => {}, cancel: () => {} })
+export const FlowActions = createContext<Actions>({ editable: false, theme: flowTheme(false), commit: () => {}, cancel: () => {} })
 
 export interface BoxData extends Record<string, unknown> {
   kind: GraphKind
@@ -174,12 +184,13 @@ function LockBadge() {
 export const BoxView = memo(function BoxView({ id, data, selected }: NodeProps<BoxNode>) {
   const css = CSS_SHAPES[data.shape]
   const svg = !css
-  const fill = data.fill ?? 'var(--cs-fill)'
-  const stroke = data.root ? 'var(--cs-accent)' : data.fill ? 'transparent' : 'var(--cs-stroke)'
+  const { theme } = useContext(FlowActions)
+  const fill = data.fill ?? theme.fill
+  const stroke = data.root ? theme.accent : data.fill ? 'transparent' : theme.stroke
   return (
     <div className={cx('cs-pop group relative grid size-full place-items-center', selected && 'cs-selected')}>
       {css ? (
-        <div className={cx('absolute inset-0 border-[1.6px]', css)} style={{ background: data.root ? 'var(--cs-accent)' : fill, borderColor: stroke }} />
+        <div className={cx('absolute inset-0 border-[1.6px]', css)} style={{ background: data.root ? theme.accent : fill, borderColor: stroke }} />
       ) : null}
       {svg && <ShapeBg shape={data.shape} fill={fill} stroke={stroke} />}
       {data.editing ? (
@@ -303,13 +314,13 @@ function cardAt(x: number, y: number, side: Position): { left: number; top: numb
 export const LinkView = memo(function LinkView({ id, source, target, data, markerEnd, selected }: EdgeProps<LinkEdge>) {
   const s = useInternalNode(source)
   const t = useInternalNode(target)
-  const { editable } = useContext(FlowActions)
+  const { editable, theme } = useContext(FlowActions)
   if (!s || !t || !data) return null
   const e = ends(s, t, data.kind === 'mind')
   const args = { sourceX: e.sx, sourceY: e.sy, sourcePosition: e.sp, targetX: e.tx, targetY: e.ty, targetPosition: e.tp }
   const [path, lx, ly] = data.kind === 'mind' ? getBezierPath(args) : getSmoothStepPath({ ...args, borderRadius: 14, offset: 18 })
   const style = {
-    stroke: selected ? 'var(--cs-accent)' : 'var(--cs-edge)',
+    stroke: selected ? theme.accent : theme.edge,
     strokeWidth: data.line === 'thick' ? 3 : data.kind === 'mind' ? 2 : 1.6,
     strokeDasharray: data.line === 'dotted' ? '6 5' : undefined,
   }
