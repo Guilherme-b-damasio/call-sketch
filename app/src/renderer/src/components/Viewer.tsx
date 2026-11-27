@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AUTO, type AppState, type ShareView } from '@shared/types'
 import { Canvas, type EmptyText } from './Canvas'
+import { LogoMark } from './Logo'
 import { cx, ModeIcon, SoundBars } from './ui'
 
 type Link = 'connecting' | 'live' | 'lost' | 'ended'
@@ -146,9 +147,7 @@ export function Viewer() {
       >
         {!float.compact && (
           <>
-            <span className="grid size-6 place-items-center rounded-md bg-gradient-to-br from-accent-400 to-accent-600 text-white shadow-sm shadow-accent-600/30">
-              <PencilLine className="size-3.5" strokeWidth={2.5} />
-            </span>
+            <LogoMark className="size-6 drop-shadow-sm" />
             <span className="text-sm font-semibold tracking-tight">Call Sketch</span>
             <span className="h-4 w-px bg-zinc-200 dark:bg-white/10" />
           </>
