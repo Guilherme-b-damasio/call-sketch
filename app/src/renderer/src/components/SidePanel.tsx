@@ -28,7 +28,7 @@ function useStickToBottom(dep: unknown) {
   return { ref, onScroll }
 }
 
-const LineRow = memo(function LineRow({ line }: { line: Line }) {
+export const LineRow = memo(function LineRow({ line }: { line: Line }) {
   const s = WHO_STYLE[line.who]
   return (
     <motion.li

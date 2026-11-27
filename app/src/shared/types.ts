@@ -43,6 +43,37 @@ export type Activity = 'idle' | 'drawing' | 'checking'
 /** Posicao (canto de cima a esquerda) de cada caixa que a pessoa arrumou, pelo id do no. */
 export type Layout = Record<string, { x: number; y: number }>
 
+/** Uma versao de um diagrama durante a call (pro replay). */
+export interface DiagramVersion {
+  ts: number // epoch em ms
+  tabId: string
+  mode: string
+  mermaid: string
+  layout?: Layout
+  by: 'ia' | 'mao'
+}
+
+/** Uma call guardada no historico: do abrir (ou limpar) ate o proximo limpar. */
+export interface CallRecord {
+  id: string
+  startedAt: number // ms
+  endedAt: number
+  lines: Line[]
+  checks: Check[]
+  versions: DiagramVersion[]
+}
+
+export interface CallSummary {
+  id: string
+  startedAt: number
+  endedAt: number
+  lines: number
+  versions: number
+  modes: string[]
+  preview: string // comeco da conversa
+  live: boolean // e a call de agora
+}
+
 /** Exportar: PNG (data URL) para png e pdf, texto do SVG para svg, e o tamanho em pixels de tela. */
 export interface ExportRequest {
   kind: 'png' | 'svg' | 'pdf'
@@ -129,6 +160,7 @@ export interface Settings {
   whisper: string
   language: string
   pythonPath: string // vazio = automatico
+  history: boolean // guarda as calls no PC pra rever depois
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -147,6 +179,7 @@ export const DEFAULT_SETTINGS: Settings = {
   whisper: 'auto',
   language: 'pt',
   pythonPath: '',
+  history: true,
 }
 
 export interface LLMPreset {
@@ -248,6 +281,10 @@ export interface Api {
   closeTab(id: string): Promise<void>
   editDiagram(edit: DiagramEdit): Promise<void>
   saveExport(req: ExportRequest): Promise<string | null>
+  listCalls(): Promise<CallSummary[]>
+  getCall(id: string): Promise<CallRecord | null>
+  deleteCall(id: string): Promise<void>
+  openHistoryFolder(): Promise<void>
   redraw(): Promise<void>
   reset(): Promise<void>
   note(text: string): Promise<void>

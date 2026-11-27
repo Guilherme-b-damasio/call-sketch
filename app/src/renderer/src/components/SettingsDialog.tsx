@@ -407,6 +407,12 @@ export function SettingsDialog({ open, onClose }: { open: boolean; onClose: () =
                 </Field>
               </Section>
 
+              <Section title="Histórico">
+                <Field label="Guardar as calls" hint="Conversa e versões do desenho ficam só neste PC, pra rever depois (as 100 últimas).">
+                  <Toggle checked={s.history} onChange={(v) => set('history', v)} label="Guardar as calls" />
+                </Field>
+              </Section>
+
               <Section title="Modos">
                 <Field label="Modos próprios" hint="Crie um arquivo .md na pasta pra adicionar ou sobrescrever um modo.">
                   <button

@@ -46,6 +46,14 @@ Fluxogramas (arquitetura, processo, decisão, daily), mapas mentais (brainstorm)
 
 A IA continua desenhando por cima das suas mudanças: ela recebe o diagrama já editado. Sequência e cronograma seguem desenhados pelo Mermaid (só dá pra mudar pelo código ou pedindo na caixa de texto).
 
+### Histórico
+
+O relógio na barra de cima abre as calls que já passaram. Cada call vai de quando você abre o app (ou clica em Limpar) até o próximo Limpar, e guarda a conversa, as notas de validação e cada versão de cada diagrama.
+
+- Escolha uma call e use **◀ ▶** ou arraste a barra para ver o desenho crescendo, versão por versão. O play toca a call inteira.
+- Ao lado aparece só o que tinha sido falado até aquele momento, e embaixo diz se a versão veio da IA ou foi editada à mão.
+- Fica tudo **só neste computador** (as 100 calls mais recentes). Dá pra apagar uma call ou desligar o histórico em Configurações.
+
 ## Sessão compartilhada
 
 Para todo mundo da call acompanhar o desenho ao vivo: clique no ícone de transmissão no topo e em **Compartilhar**. O app gera um link; mande no chat da call.
