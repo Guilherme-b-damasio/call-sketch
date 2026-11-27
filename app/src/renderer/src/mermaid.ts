@@ -3,7 +3,7 @@ import type { Mermaid } from 'mermaid'
 
 const FONT = '"Inter Variable", "Segoe UI", system-ui, sans-serif'
 
-const PALETTE = {
+export const PALETTE = {
   dark: {
     scale: ['#2e2152', '#4a2a1a', '#123a2e', '#1b2f4f', '#4a1c2c', '#33401a', '#173f45', '#3f3417'],
     vars: {
@@ -84,6 +84,13 @@ function configure(mermaid: Mermaid, dark: boolean): void {
     sequence: { actorMargin: 60, messageMargin: 36, mirrorActors: false },
     mindmap: { padding: 14 },
   })
+}
+
+/** O mermaid pronto pra uso (carregado e configurado). */
+export async function getMermaid(dark = configuredDark ?? false): Promise<Mermaid> {
+  const mermaid = await load()
+  configure(mermaid, dark)
+  return mermaid
 }
 
 /** Carrega o mermaid sem renderizar (pra deixar pronto enquanto o usuario fala). */
