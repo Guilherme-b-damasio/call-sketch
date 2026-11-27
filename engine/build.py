@@ -23,7 +23,7 @@ def main() -> None:
     ap.add_argument("--gpu", action="store_true")
     args = ap.parse_args()
 
-    collect = ["faster_whisper", "ctranslate2", "soundcard", "edge_tts", "miniaudio"]
+    collect = ["faster_whisper", "ctranslate2", "onnxruntime", "soundcard", "edge_tts", "miniaudio"]
     if args.gpu:
         missing = [m for m in ("nvidia.cublas", "nvidia.cudnn") if not importlib.util.find_spec(m)]
         if missing:

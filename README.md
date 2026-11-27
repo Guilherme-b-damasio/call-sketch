@@ -46,6 +46,12 @@ Fluxogramas (arquitetura, processo, decisão, daily), mapas mentais (brainstorm)
 
 A IA continua desenhando por cima das suas mudanças: ela recebe o diagrama já editado. Sequência e cronograma seguem desenhados pelo Mermaid (só dá pra mudar pelo código ou pedindo na caixa de texto).
 
+### Quem fala
+
+As falas da call aparecem como **Pessoa 1**, **Pessoa 2**… em vez de só "call", cada uma com uma cor. Clique no nome pra trocar por "Ana", "Bruno"; vale pra todas as falas daquela pessoa, e a IA e a ata passam a usar o nome. Ao clicar em Limpar, a contagem recomeça.
+
+Funciona reconhecendo a voz de cada frase com um modelo pequeno (WeSpeaker, 26 MB) que roda na CPU, ao lado do Whisper. Ele é baixado do GitHub na primeira vez e conferido pelo SHA-256; dá pra desligar em Configurações → Quem fala. Frases muito curtas (menos de 1 segundo) ficam sem pessoa, e duas pessoas falando na mesma frase contam como uma só.
+
 ### Histórico
 
 O relógio na barra de cima abre as calls que já passaram. Cada call vai de quando você abre o app (ou clica em Limpar) até o próximo Limpar, e guarda a conversa, as notas de validação e cada versão de cada diagrama.

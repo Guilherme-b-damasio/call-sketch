@@ -128,6 +128,7 @@ function toState(view: ShareView | null): AppState {
     layout: view?.layout ?? {},
     locked: [],
     suggestions: [],
+    speakers: {},
     activeTab: '',
   }
 }

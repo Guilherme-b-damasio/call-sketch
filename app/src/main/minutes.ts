@@ -3,6 +3,7 @@
  * em aberto; o resto (data, diagramas, notas de validacao, transcricao) sai direto do historico,
  * sem passar pela IA, pra nao inventar nada.
  */
+import { lineAuthor } from '@shared/speakers'
 import type { CallRecord, Line } from '@shared/types'
 import type { LLM } from './llm'
 
@@ -37,10 +38,8 @@ export interface MinutesParts {
   open: string[]
 }
 
-const WHO: Record<Line['who'], string> = { call: 'Call', eu: 'Eu', nota: 'Nota' }
-
-function transcript(lines: Line[]): string {
-  const all = lines.map((l) => `[${l.t}] ${WHO[l.who] ?? l.who}: ${l.text}`)
+function transcript(lines: Line[], names: CallRecord['speakers']): string {
+  const all = lines.map((l) => `[${l.t}] ${lineAuthor(l, names)}: ${l.text}`)
   let text = all.join('\n')
   if (text.length <= MAX_TRANSCRIPT) return text
   // call muito longa: comeco e fim inteiros, o meio cortado
@@ -60,7 +59,7 @@ export function buildMinutesUser(rec: CallRecord, modeName: (id: string) => stri
   const diagrams = finalDiagrams(rec)
     .map((d) => `${modeName(d.mode) || 'Diagrama'}:\n\`\`\`mermaid\n${d.mermaid}\n\`\`\``)
     .join('\n\n')
-  return `Diagramas desenhados:\n${diagrams || '(nenhum)'}\n\nTranscricao:\n${transcript(rec.lines) || '(vazia)'}`
+  return `Diagramas desenhados:\n${diagrams || '(nenhum)'}\n\nTranscricao:\n${transcript(rec.lines, rec.speakers) || '(vazia)'}`
 }
 
 const NONE = /^(nenhum|nenhuma|nada|-|n\/a)\.?$/i
@@ -148,7 +147,7 @@ export function renderMinutes(rec: CallRecord, parts: MinutesParts, modeName: (i
   const said = rec.lines.filter((l) => l.text.trim())
   if (said.length) {
     out.push('<details>', '<summary>Transcrição completa</summary>', '')
-    for (const l of said) out.push(`- \`${l.t}\` **${WHO[l.who] ?? l.who}:** ${l.text}`)
+    for (const l of said) out.push(`- \`${l.t}\` **${lineAuthor(l, rec.speakers)}:** ${l.text}`)
     out.push('', '</details>', '')
   }
   return `${out.join('\n').trimEnd()}\n`

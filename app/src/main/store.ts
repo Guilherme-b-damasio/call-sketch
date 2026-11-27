@@ -1,5 +1,6 @@
 /** Estado da sessao no processo principal. Avisa a interface a cada mudanca (agrupado). */
 import { EventEmitter } from 'node:events'
+import { MAX_SPEAKER_NAME } from '@shared/speakers'
 import { AUTO, type AppState, type Check, type Suggestion, type DiagramEdit, type EngineInfo, type Line, type ShareInfo, type Tab } from '@shared/types'
 
 const MAX_LINES = 1000
@@ -43,6 +44,7 @@ export class Store extends EventEmitter<{ change: [AppState]; redraw: []; line: 
       layout: {},
       locked: [],
       suggestions: [],
+      speakers: {},
     }
   }
 
@@ -100,6 +102,14 @@ export class Store extends EventEmitter<{ change: [AppState]; redraw: []; line: 
     this.update({ suggestions: this.s.suggestions.filter((x) => x.id !== id) })
     if (accept) this.addNote(sug.name ? `Sugestão de ${sug.name}: ${sug.text}` : `Sugestão: ${sug.text}`)
     return sug
+  }
+
+  renameSpeaker(n: number, name: string): void {
+    const speakers = { ...this.s.speakers }
+    const clean = name.replace(/\s+/g, ' ').trim().slice(0, MAX_SPEAKER_NAME)
+    if (clean) speakers[n] = clean
+    else delete speakers[n]
+    this.update({ speakers })
   }
 
   clearSuggestions(): void {
@@ -234,6 +244,7 @@ export class Store extends EventEmitter<{ change: [AppState]; redraw: []; line: 
     this.update({
       lines: [],
       checks: [],
+      speakers: {},
       mermaid: '',
       version: this.s.version + 1,
       renderError: null,

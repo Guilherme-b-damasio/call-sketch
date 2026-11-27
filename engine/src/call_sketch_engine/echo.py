@@ -22,6 +22,7 @@ class Line:
     id: int = field(default_factory=lambda: next(_ids))
     t: str = field(default_factory=lambda: f"{datetime.now():%H:%M:%S}")
     ts: float = field(default_factory=time.time)
+    speaker: int | None = None  # so nas falas da call: Pessoa 1, 2, ...
 
 
 def similar(a: str, b: str) -> bool:
