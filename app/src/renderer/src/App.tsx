@@ -8,6 +8,7 @@ import { SessionDialog } from './components/SessionDialog'
 import { SettingsDialog } from './components/SettingsDialog'
 import { SidePanel } from './components/SidePanel'
 import { Splash, shouldShowSplash } from './components/Splash'
+import { TabStrip } from './components/Tabs'
 import { TitleBar } from './components/TitleBar'
 import { Toasts } from './components/Toasts'
 import { api, useAppState, useModes } from './hooks'
@@ -39,7 +40,8 @@ export function App() {
       {state && (
         <div className="flex h-screen flex-col overflow-hidden">
           <TitleBar state={state} brand={!splash} onSettings={openSettings} onSession={openSession} />
-          <ModeBar modes={modes} mode={state.mode} activeMode={state.activeMode} />
+          <ModeBar modes={modes} mode={state.mode} activeMode={state.activeMode} single={state.tabs.length < 2} />
+          <TabStrip tabs={state.tabs} active={state.activeTab} modes={modes} />
           <main className="flex min-h-0 flex-1">
             <section className="relative min-w-0 flex-1">
               <ErrorBoundary>
