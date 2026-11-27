@@ -37,6 +37,7 @@ export function viewOf(s: AppState, modeName: (id: string) => string): ShareView
     modeName: s.activeMode ? modeName(s.activeMode) : '',
     activity: s.activity === 'drawing' ? 'drawing' : 'idle',
     paused: s.paused,
+    layout: s.layout,
   }
 }
 

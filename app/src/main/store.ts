@@ -1,12 +1,16 @@
 /** Estado da sessao no processo principal. Avisa a interface a cada mudanca (agrupado). */
 import { EventEmitter } from 'node:events'
-import { AUTO, type AppState, type Check, type EngineInfo, type Line, type ShareInfo } from '@shared/types'
+import { AUTO, type AppState, type Check, type DiagramEdit, type EngineInfo, type Line, type ShareInfo, type Tab } from '@shared/types'
 
 const MAX_LINES = 1000
 const EMIT_DELAY_MS = 40
 
 function hms(d = new Date()): string {
   return d.toTimeString().slice(0, 8)
+}
+
+function newTab(id: string, mode: string): Tab {
+  return { id, mode, activeMode: mode === AUTO ? '' : mode, mermaid: '', layout: {}, locked: [] }
 }
 
 export class Store extends EventEmitter<{ change: [AppState]; redraw: []; line: [] }> {
@@ -33,8 +37,10 @@ export class Store extends EventEmitter<{ change: [AppState]; redraw: []; line: 
       engine: { state: 'starting', msg: 'iniciando...' },
       lastDrawAt: null,
       share: { state: 'off', viewers: 0 },
-      tabs: [{ id: 't1', mode, activeMode: mode === AUTO ? '' : mode, mermaid: '' }],
+      tabs: [newTab('t1', mode)],
       activeTab: 't1',
+      layout: {},
+      locked: [],
     }
   }
 
@@ -46,8 +52,9 @@ export class Store extends EventEmitter<{ change: [AppState]; redraw: []; line: 
     const s = { ...this.s, ...patch }
     // a aba ativa espelha os campos do topo
     s.tabs = s.tabs.map((t) =>
-      t.id === s.activeTab && (t.mode !== s.mode || t.activeMode !== s.activeMode || t.mermaid !== s.mermaid)
-        ? { ...t, mode: s.mode, activeMode: s.activeMode, mermaid: s.mermaid }
+      t.id === s.activeTab &&
+      (t.mode !== s.mode || t.activeMode !== s.activeMode || t.mermaid !== s.mermaid || t.layout !== s.layout || t.locked !== s.locked)
+        ? { ...t, mode: s.mode, activeMode: s.activeMode, mermaid: s.mermaid, layout: s.layout, locked: s.locked }
         : t,
     )
     this.s = s
@@ -112,7 +119,7 @@ export class Store extends EventEmitter<{ change: [AppState]; redraw: []; line: 
   /** Abre uma aba nova (outro diagrama da mesma conversa) e vai para ela. */
   addTab(mode: string): string {
     const id = `t${++this.tabSeq}`
-    this.update({ tabs: [...this.s.tabs, { id, mode, activeMode: mode === AUTO ? '' : mode, mermaid: '' }] })
+    this.update({ tabs: [...this.s.tabs, newTab(id, mode)] })
     this.selectTab(id)
     return id
   }
@@ -125,10 +132,29 @@ export class Store extends EventEmitter<{ change: [AppState]; redraw: []; line: 
       mode: tab.mode,
       activeMode: tab.activeMode,
       mermaid: tab.mermaid,
+      layout: tab.layout,
+      locked: tab.locked,
       version: this.s.version + 1, // a tela redesenha mesmo se as duas abas tiverem a mesma versao
       renderError: null,
     })
     if (!tab.mermaid) this.emit('redraw') // aba vazia: desenha a conversa ate aqui
+  }
+
+  /** Edicao a mao (texto do diagrama, posicoes das caixas e travas). A IA desenha em cima dela. */
+  editTab(edit: DiagramEdit): void {
+    const tab = this.s.tabs.find((t) => t.id === edit.tabId)
+    if (!tab) return
+    const patch: Partial<Tab> = {}
+    if (edit.mermaid !== undefined && edit.mermaid.trim() && edit.mermaid !== tab.mermaid) patch.mermaid = edit.mermaid
+    if (edit.layout) patch.layout = edit.layout
+    if (edit.locked) patch.locked = edit.locked
+    if (!Object.keys(patch).length) return
+    if (edit.tabId !== this.s.activeTab) {
+      this.update({ tabs: this.s.tabs.map((t) => (t.id === edit.tabId ? { ...t, ...patch } : t)) })
+      return
+    }
+    // a versao sobe ate so com posicao nova: quem assiste a sessao recebe a arrumacao
+    this.update({ ...patch, version: this.s.version + 1, renderError: null })
   }
 
   closeTab(id: string): void {
@@ -186,8 +212,10 @@ export class Store extends EventEmitter<{ change: [AppState]; redraw: []; line: 
       renderError: null,
       error: null,
       activeMode,
-      tabs: [{ id, mode: this.s.mode, activeMode, mermaid: '' }],
+      tabs: [newTab(id, this.s.mode)],
       activeTab: id,
+      layout: {},
+      locked: [],
     })
   }
 }

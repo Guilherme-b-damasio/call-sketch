@@ -142,6 +142,43 @@ describe('desenhista', () => {
     expect(store.state.lines).toEqual([])
   })
 
+  it('edicao a mao enquanto a IA desenha: a resposta velha nao atropela a edicao', async () => {
+    const { sk, store, llm } = sketcher('')
+    let answer!: () => void
+    llm.ask = async () => {
+      await new Promise<void>((r) => (answer = r))
+      return '```mermaid\nflowchart TD\n Velho-->Desenho\n```'
+    }
+    store.addLine(line('call', 'primeiro valida, depois salva'))
+    const drawing = sk.step()
+    await vi.waitFor(() => expect(answer).toBeTypeOf('function'))
+    store.editTab({ tabId: store.state.activeTab, mermaid: 'flowchart TD\n  A["Meu"] --> B["Jeito"]' })
+    answer()
+    await drawing
+    expect(store.state.mermaid).toBe('flowchart TD\n  A["Meu"] --> B["Jeito"]')
+  })
+
+  it('posicoes e travas ficam na aba e as travas vao no pedido pra IA', async () => {
+    const { sk, store, llm } = sketcher('```mermaid\nflowchart TD\n A-->B\n```')
+    const tab = store.state.activeTab
+    const v = store.state.version
+    store.editTab({ tabId: tab, layout: { A: { x: 10, y: 20 } }, locked: ['A'] })
+    expect(store.state.version).toBe(v + 1) // quem assiste recebe a arrumacao
+    expect(store.state.tabs[0]).toMatchObject({ layout: { A: { x: 10, y: 20 } }, locked: ['A'] })
+    store.addLine(line('call', 'o cliente chama a api e a api grava no banco'))
+    await sk.step()
+    expect(llm.calls[0].user).toContain('TRAVADOS pelo usuario')
+    expect(llm.calls[0].user).toContain(': A')
+    expect(store.state.layout).toEqual({ A: { x: 10, y: 20 } }) // desenho novo da IA nao apaga a arrumacao
+    const other = store.addTab('dados')
+    expect(store.state.layout).toEqual({})
+    store.editTab({ tabId: tab, mermaid: 'flowchart TD\n X-->Y' }) // edita aba que nao esta na tela
+    expect(store.state.mermaid).toBe('')
+    store.selectTab(tab)
+    expect(store.state).toMatchObject({ mermaid: 'flowchart TD\n X-->Y', locked: ['A'] })
+    expect(other).not.toBe(tab)
+  })
+
   it('cada aba guarda o seu diagrama', () => {
     const store = new Store()
     store.setDiagram('flowchart TD\n A-->B', 'processo')

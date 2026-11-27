@@ -74,3 +74,29 @@
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* editor visual (React Flow) */
+.cs-flow .react-flow { background: transparent; }
+.cs-flow .react-flow__node { font-family: var(--font-sans); }
+.cs-flow.editable .react-flow__node.draggable { cursor: grab; }
+.cs-flow .react-flow__pane { cursor: default; }
+.cs-flow .react-flow__pane.draggable { cursor: grab; }
+.cs-flow .react-flow__pane.dragging { cursor: grabbing; }
+.cs-handle {
+  width: 10px; height: 10px; min-width: 0; min-height: 0;
+  border: 2px solid var(--cs-bg); background: var(--cs-accent); border-radius: 999px;
+  opacity: 0; transition: opacity 0.15s;
+}
+.cs-flow:not(.editable) .cs-handle { pointer-events: none; }
+.cs-flow.editable .react-flow__node:hover .cs-handle,
+.cs-flow.editable .react-flow__node.selected .cs-handle,
+.cs-flow .react-flow__handle.connectingfrom { opacity: 1; }
+.cs-selected { outline: 2px solid var(--cs-accent); outline-offset: 4px; border-radius: 10px; }
+.cs-pop { animation: cs-pop 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@keyframes cs-pop { from { opacity: 0; transform: scale(0.92); } }
+.cs-flow .react-flow__edge.selected .react-flow__edge-path { stroke: var(--cs-accent); }
+.cs-flow .react-flow__connection-path { stroke: var(--cs-accent); stroke-width: 1.6; }
+.cs-flow .react-flow__selection { background: rgb(139 92 246 / 0.08); border: 1px solid rgb(139 92 246 / 0.5); }
+@media (prefers-reduced-motion: reduce) { .cs-pop { animation: none; } }
+.cs-flow .react-flow__attribution { background: transparent; font-size: 9px; opacity: 0.45; }
+.cs-flow .react-flow__attribution a { color: inherit; }

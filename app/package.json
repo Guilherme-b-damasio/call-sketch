@@ -16,7 +16,9 @@
     "dist:linux": "electron-vite build && electron-builder --linux --publish never"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^1.10.0"
+    "@anthropic-ai/sdk": "^1.10.0",
+    "@dagrejs/dagre": "^3.1.4",
+    "@xyflow/react": "^13.0.3"
   },
   "devDependencies": {
     "@fontsource-variable/inter": "^5.2.5",

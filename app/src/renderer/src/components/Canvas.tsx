@@ -1,10 +1,14 @@
 import { Check as CheckIcon, Copy, Download, Maximize, Mic, Settings, ZoomIn, ZoomOut } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import type { Graph } from '@shared/graph'
 import type { AppState } from '@shared/types'
+import { parseGraph } from '../flow/parse'
 import { useDark } from '../hooks'
 import { preload, renderDiagram } from '../mermaid'
 import { cx, IconButton, ModeIcon, SoundBars } from './ui'
+
+const FlowCanvas = lazy(() => import('../flow/FlowCanvas').then((m) => ({ default: m.FlowCanvas })))
 
 interface View {
   x: number
@@ -15,7 +19,6 @@ interface View {
 const PAD = 48
 const MAX_FIT = 1.6
 
-/** Area do diagrama: renderiza o mermaid, faz transicao entre versoes, zoom e arrastar. */
 /** Texto do estado vazio quando quem usa nao e o app que escuta (ex: quem assiste uma sessao). */
 export interface EmptyText {
   title: string
@@ -35,8 +38,106 @@ interface CanvasProps {
 
 const reportToApp = (error: string) => void window.api?.renderError(error)
 
+/**
+ * Area do diagrama. Fluxograma, mapa mental e diagrama de dados abrem no editor visual (caixas que
+ * da pra arrastar e editar); os outros tipos sao desenhados pelo mermaid, com zoom e arrastar.
+ */
 export function Canvas({ state, modeName, onSettings, compact = false, empty, onRenderError = reportToApp }: CanvasProps) {
   const dark = useDark()
+  const [parsed, setParsed] = useState<{ code: string; graph: Graph | null } | null>(null)
+  const [svgShown, setSvgShown] = useState(false)
+
+  useEffect(preload, [])
+
+  useEffect(() => {
+    if (!state.mermaid) {
+      setParsed(null)
+      return
+    }
+    let alive = true
+    void parseGraph(state.mermaid).then((graph) => alive && setParsed({ code: state.mermaid, graph }))
+    return () => {
+      alive = false
+    }
+  }, [state.mermaid])
+
+  const graph = state.mermaid && parsed?.graph ? parsed.graph : null
+  const shown = !!graph || svgShown
+  const editable = !compact && !!window.api?.editDiagram
+  const fileName = `call-sketch-${state.activeMode || 'diagrama'}`
+
+  return (
+    <div className={cx('relative h-full w-full overflow-hidden', !compact && !graph && 'dot-grid')}>
+      {graph && parsed ? (
+        <Suspense fallback={null}>
+          <FlowCanvas
+            key={state.activeTab || 'view'}
+            graph={graph}
+            code={parsed.code}
+            layout={state.layout ?? {}}
+            locked={state.locked ?? []}
+            tabId={state.activeTab}
+            editable={editable}
+            compact={compact}
+            dark={dark}
+            fileName={fileName}
+          />
+        </Suspense>
+      ) : (
+        <SvgStage
+          code={state.mermaid && parsed && !parsed.graph ? parsed.code : ''}
+          version={state.version}
+          dark={dark}
+          compact={compact}
+          fileName={fileName}
+          onShown={setSvgShown}
+          onRenderError={onRenderError}
+        />
+      )}
+
+      <AnimatePresence>{!shown && <EmptyState state={state} onSettings={onSettings} compact={compact} override={empty} />}</AnimatePresence>
+
+      {!compact && state.activeMode && shown && (
+        <div className="pointer-events-none absolute left-4 top-4 z-10 flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white/80 px-2.5 py-1 text-xs font-medium text-zinc-600 backdrop-blur dark:border-white/8 dark:bg-ink-900/70 dark:text-zinc-300">
+          <ModeIcon id={state.activeMode} className="size-3.5 text-accent-500" />
+          <span>{modeName ?? state.activeMode}</span>
+        </div>
+      )}
+
+      <AnimatePresence>
+        {state.renderError && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            className="absolute bottom-4 left-4 z-10 rounded-lg bg-amber-500/12 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-300"
+          >
+            Diagrama com erro de sintaxe, pedindo correção…
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+/** Desenho do mermaid (sequencia, cronograma...): renderiza, faz transicao entre versoes, zoom e arrastar. */
+function SvgStage({
+  code,
+  version,
+  dark,
+  compact,
+  fileName,
+  onShown,
+  onRenderError,
+}: {
+  code: string
+  version: number
+  dark: boolean
+  compact: boolean
+  fileName: string
+  onShown: (shown: boolean) => void
+  onRenderError: (error: string) => void
+}) {
   const boxRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
   const view = useRef<View>({ x: 0, y: 0, k: 1 })
@@ -46,7 +147,8 @@ export function Canvas({ state, modeName, onSettings, compact = false, empty, on
   const [zoom, setZoom] = useState(100)
   const [copied, setCopied] = useState(false)
 
-  useEffect(preload, [])
+  useEffect(() => onShown(!!layer), [layer, onShown])
+  useEffect(() => () => onShown(false), [onShown])
 
   const apply = useCallback(() => {
     const { x, y, k } = view.current
@@ -66,20 +168,20 @@ export function Canvas({ state, modeName, onSettings, compact = false, empty, on
 
   // renderiza quando muda a versao ou o tema
   useEffect(() => {
-    if (!state.mermaid) {
+    if (!code) {
       setLayer(null)
       return
     }
     let alive = true
-    renderDiagram(state.mermaid, dark)
-      .then((r) => alive && setLayer({ key: `${state.version}-${dark}`, html: r.svg, w: r.w, h: r.h }))
+    renderDiagram(code, dark)
+      .then((r) => alive && setLayer({ key: `${version}-${dark}`, html: r.svg, w: r.w, h: r.h }))
       .catch((e: unknown) => {
         if (alive) onRenderError(String(e instanceof Error ? e.message : e).slice(0, 500))
       })
     return () => {
       alive = false
     }
-  }, [state.version, state.mermaid, dark, onRenderError])
+  }, [version, code, dark, onRenderError])
 
   // enquadra o diagrama novo (a nao ser que a pessoa tenha mexido no zoom)
   useLayoutEffect(() => {
@@ -135,7 +237,7 @@ export function Canvas({ state, modeName, onSettings, compact = false, empty, on
   }
 
   const copy = async () => {
-    await navigator.clipboard.writeText(state.mermaid)
+    await navigator.clipboard.writeText(code)
     setCopied(true)
     setTimeout(() => setCopied(false), 1400)
   }
@@ -143,7 +245,7 @@ export function Canvas({ state, modeName, onSettings, compact = false, empty, on
   const saveSvg = () => {
     if (!layer) return
     const url = URL.createObjectURL(new Blob([layer.html], { type: 'image/svg+xml' }))
-    const a = Object.assign(document.createElement('a'), { href: url, download: `call-sketch-${state.activeMode || 'diagrama'}.svg` })
+    const a = Object.assign(document.createElement('a'), { href: url, download: `${fileName}.svg` })
     a.click()
     setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
@@ -154,7 +256,7 @@ export function Canvas({ state, modeName, onSettings, compact = false, empty, on
       onWheel={onWheel}
       onPointerDown={onPointerDown}
       onDoubleClick={fit}
-      className={cx('relative h-full w-full overflow-hidden', !compact && 'dot-grid', layer && 'cursor-grab')}
+      className={cx('absolute inset-0 overflow-hidden', layer && 'cursor-grab')}
     >
       <div ref={stageRef} className="absolute left-0 top-0 origin-top-left will-change-transform">
         <AnimatePresence initial={false}>
@@ -171,28 +273,6 @@ export function Canvas({ state, modeName, onSettings, compact = false, empty, on
           )}
         </AnimatePresence>
       </div>
-
-      <AnimatePresence>{!layer && <EmptyState state={state} onSettings={onSettings} compact={compact} override={empty} />}</AnimatePresence>
-
-      {!compact && state.activeMode && layer && (
-        <div className="pointer-events-none absolute left-4 top-4 flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white/80 px-2.5 py-1 text-xs font-medium text-zinc-600 backdrop-blur dark:border-white/8 dark:bg-ink-900/70 dark:text-zinc-300">
-          <ModeIcon id={state.activeMode} className="size-3.5 text-accent-500" />
-          <span>{modeName ?? state.activeMode}</span>
-        </div>
-      )}
-
-      <AnimatePresence>
-        {state.renderError && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-            className="absolute bottom-4 left-4 rounded-lg bg-amber-500/12 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-300"
-          >
-            Diagrama com erro de sintaxe, pedindo correção…
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {layer && !compact && (
         <div

@@ -32,7 +32,19 @@ Um app desktop (Electron + React) com o diagrama no centro, a conversa e a valid
 | `Ctrl+Shift+P` | pausa / continua |
 | `Ctrl+Shift+O` | janela flutuante |
 
-No canvas: roda do mouse dá zoom, arrastar move, duplo clique enquadra. Dá pra copiar o código Mermaid ou salvar o SVG. A caixa de texto embaixo da conversa manda notas e correções direto pro desenho.
+No canvas: roda do mouse dá zoom e arrastar o fundo move. Dá pra copiar o código Mermaid ou salvar o SVG. A caixa de texto embaixo da conversa manda notas e correções direto pro desenho.
+
+### Editar à mão
+
+Fluxogramas (arquitetura, processo, decisão, daily), mapas mentais (brainstorm) e diagramas de dados abrem num editor de caixas:
+
+- **Arraste** as caixas para onde quiser. A arrumação fica salva na aba, e quem assiste a sessão vê igual.
+- **Duplo clique** numa caixa ou numa ligação edita o texto. No fundo, cria uma caixa nova. Numa entidade, o nome vai na primeira linha e cada campo numa linha (`int id PK`).
+- **Puxe das bolinhas** que aparecem na borda da caixa até outra caixa para ligar. No mapa mental, isso muda o galho de lugar.
+- **Del** apaga o que estiver selecionado e **Ctrl+Z** desfaz.
+- **Travar** (cadeado na barra) marca caixas que a IA não deve mudar. A varinha **reorganiza** tudo de novo.
+
+A IA continua desenhando por cima das suas mudanças: ela recebe o diagrama já editado. Sequência e cronograma seguem desenhados pelo Mermaid (só dá pra mudar pelo código ou pedindo na caixa de texto).
 
 ## Sessão compartilhada
 
