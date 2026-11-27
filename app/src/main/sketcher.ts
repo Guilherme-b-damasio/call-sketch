@@ -29,8 +29,8 @@ function words(lines: readonly Line[]): number {
  * pra juntar frases seguidas). Se o Claude ainda esta desenhando, o proximo sai assim que ele termina.
  */
 export class Sketcher {
-  private drawnUpto = 0
-  private drawnMode: string
+  /** Por aba: ate que fala ja desenhou e em que modo (cada aba e um diagrama da mesma conversa). */
+  private memo = new Map<string, { upto: number; mode: string }>()
   private busy = false
   private timer: NodeJS.Timeout | null = null
   private pending: boolean | null = null // null = nada pendente; true/false = forcado ou nao
@@ -41,7 +41,6 @@ export class Sketcher {
     private readonly store: Store,
     private readonly opts: SketcherOptions,
   ) {
-    this.drawnMode = store.state.activeMode
     store.on('redraw', () => this.requestNow())
     store.on('line', () => this.running && this.request(false, opts.settleMs ?? SETTLE_MS))
   }
@@ -88,9 +87,12 @@ export class Sketcher {
   async step(forced = false): Promise<boolean> {
     const s = this.store.state
     if (s.paused && !forced) return false
-    if (s.lines.length < this.drawnUpto) this.drawnUpto = 0 // reset
-    const modeChanged = s.mode !== AUTO && s.activeMode !== this.drawnMode
-    const nothingNew = s.lines.length === this.drawnUpto && !forced && !s.renderError && !modeChanged
+    const tabId = s.activeTab
+    const memo = this.memo.get(tabId) ?? { upto: 0, mode: s.activeMode }
+    this.memo.set(tabId, memo)
+    if (s.lines.length < memo.upto) memo.upto = 0 // reset
+    const modeChanged = s.mode !== AUTO && s.activeMode !== memo.mode
+    const nothingNew = s.lines.length === memo.upto && !forced && !s.renderError && !modeChanged
     if (!s.lines.length || nothingNew) return false
     const tooLittle = !s.mermaid && words(s.lines) < (this.opts.minWords ?? MIN_WORDS)
     if (tooLittle && !forced) return false
@@ -114,11 +116,12 @@ export class Sketcher {
       if (this.store.resetCount !== epoch) return true // limparam enquanto desenhava: o desenho velho nao volta
       let [chosen, code] = parseResponse(out)
       if (s.mode !== AUTO || !chosen || !modes.has(chosen)) chosen = s.activeMode || null
-      this.drawnUpto = s.lines.length
-      this.store.setDiagram(code, chosen)
+      memo.upto = s.lines.length
+      this.store.setDiagram(code, chosen, tabId)
       console.log(`[desenho] ${chosen ?? '-'} em ${Date.now() - this.lastStart}ms (${s.lines.length} falas)`)
-      if (s.mode === AUTO && chosen && chosen !== this.drawnMode) this.opts.onModeChange(modes.get(chosen)!)
-      this.drawnMode = chosen ?? ''
+      const onScreen = this.store.state.activeTab === tabId
+      if (onScreen && s.mode === AUTO && chosen && chosen !== memo.mode) this.opts.onModeChange(modes.get(chosen)!)
+      memo.mode = chosen ?? ''
     } catch (e) {
       this.store.setError(e instanceof Error ? e.message : String(e))
     } finally {
