@@ -116,6 +116,8 @@ function toState(view: ShareView | null): AppState {
     lastDrawAt: null,
     share: { state: 'off', viewers: 0 },
     tabs: [],
+    layout: view?.layout ?? {},
+    locked: [],
     activeTab: '',
   }
 }

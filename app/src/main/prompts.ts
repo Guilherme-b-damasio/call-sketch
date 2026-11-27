@@ -11,6 +11,7 @@ Regras gerais:
 - Textos curtos em portugues: no maximo ~4 palavras por no. Rotulos sempre entre aspas: A["Texto"].
 - Codigo Mermaid 11 valido, sem estilos, cores ou classDef. No maximo ~15 nos.
 - Falas marcadas como "nota" sao pedidos diretos do usuario: obedeca.
+- O usuario pode editar o diagrama a mao: mantenha o que ele mudou e os ids dos nos que ja existem.
 - Se ainda nao ha nada desenhavel, devolva o diagrama atual.`
 
 export const CHECK_PROMPT = `Voce e um revisor tecnico ouvindo uma conversa ao vivo.
@@ -53,12 +54,15 @@ export function buildUser(opts: {
   activeMode: string
   renderError: string | null
   modeChanged: boolean
+  locked?: string[]
 }): string {
   const parts = [
     `Modo atual: ${opts.activeMode || '(nenhum ainda)'}`,
     `Diagrama atual:\n\`\`\`mermaid\n${opts.current || '(vazio)'}\n\`\`\``,
     `Transcricao:\n${formatTranscript(opts.lines)}`,
   ]
+  if (opts.locked?.length)
+    parts.push(`Nos TRAVADOS pelo usuario (nao mude o texto, nao remova e nao troque as ligacoes deles): ${opts.locked.join(', ')}`)
   if (opts.modeChanged) parts.push('O MODO MUDOU: redesenhe o conteudo no formato do novo modo.')
   if (opts.renderError) parts.push(`O diagrama atual DEU ERRO ao renderizar, corrija a sintaxe: ${opts.renderError}`)
   return parts.join('\n\n')

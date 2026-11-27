@@ -111,9 +111,15 @@ export class Sketcher {
           activeMode: s.activeMode,
           renderError: s.renderError,
           modeChanged,
+          locked: s.locked,
         }),
       )
       if (this.store.resetCount !== epoch) return true // limparam enquanto desenhava: o desenho velho nao volta
+      if (this.store.state.tabs.find((t) => t.id === tabId)?.mermaid !== s.mermaid) {
+        // a pessoa editou a mao enquanto a IA desenhava: descarta e desenha de novo em cima da edicao
+        this.pending = this.pending ?? false
+        return true
+      }
       let [chosen, code] = parseResponse(out)
       if (s.mode !== AUTO || !chosen || !modes.has(chosen)) chosen = s.activeMode || null
       memo.upto = s.lines.length

@@ -40,7 +40,20 @@ export interface EngineInfo {
 export type Activity = 'idle' | 'drawing' | 'checking'
 
 /** Um diagrama da call. Varios podem existir lado a lado (abas), todos da mesma conversa. */
+/** Posicao (canto de cima a esquerda) de cada caixa que a pessoa arrumou, pelo id do no. */
+export type Layout = Record<string, { x: number; y: number }>
+
+/** Edicao feita a mao no desenho (so o que veio muda). */
+export interface DiagramEdit {
+  tabId: string
+  mermaid?: string
+  layout?: Layout
+  locked?: string[]
+}
+
 export interface Tab {
+  layout: Layout
+  locked: string[] // ids dos nos que a IA nao deve mexer
   id: string
   mode: string // "auto" ou id do modo
   activeMode: string // o que esta desenhado
@@ -65,6 +78,8 @@ export interface AppState {
   // mermaid/mode/activeMode/renderError acima sao sempre os da aba ativa
   tabs: Tab[]
   activeTab: string
+  layout: Layout // da aba ativa
+  locked: string[] // da aba ativa
 }
 
 /** O que quem assiste a sessao recebe (so o desenho, nunca a conversa). */
@@ -75,6 +90,7 @@ export interface ShareView {
   modeName: string
   activity: Activity
   paused: boolean
+  layout?: Layout
 }
 
 export type ShareState = 'off' | 'starting' | 'on' | 'error'
@@ -221,6 +237,7 @@ export interface Api {
   addTab(mode: string): Promise<void>
   selectTab(id: string): Promise<void>
   closeTab(id: string): Promise<void>
+  editDiagram(edit: DiagramEdit): Promise<void>
   redraw(): Promise<void>
   reset(): Promise<void>
   note(text: string): Promise<void>

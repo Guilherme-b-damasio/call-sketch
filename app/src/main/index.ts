@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { app, BrowserWindow, globalShortcut, ipcMain, type Rectangle, screen, shell } from 'electron'
-import { AUTO, type LLMTest, type Settings } from '@shared/types'
+import { AUTO, type DiagramEdit, type Layout, type LLMTest, type Settings } from '@shared/types'
 import appIcon from '../../build/icon.png?asset'
 import { type LLM, makeLLM } from './claude'
 import { listModels } from './openai'
@@ -336,6 +336,23 @@ ipcMain.handle('tab:add', (_, mode: string) => {
 })
 ipcMain.handle('tab:select', (_, id: string) => store.selectTab(String(id)))
 ipcMain.handle('tab:close', (_, id: string) => store.closeTab(String(id)))
+ipcMain.handle('diagram:edit', (_, edit: DiagramEdit) => {
+  if (!edit || typeof edit.tabId !== 'string') throw new Error('edicao invalida')
+  const layout = edit.layout && typeof edit.layout === 'object' ? cleanLayout(edit.layout) : undefined
+  store.editTab({
+    tabId: edit.tabId,
+    mermaid: typeof edit.mermaid === 'string' ? edit.mermaid.slice(0, 50_000) : undefined,
+    layout,
+    locked: Array.isArray(edit.locked) ? edit.locked.filter((x) => typeof x === 'string').slice(0, 500) : undefined,
+  })
+})
+
+function cleanLayout(raw: Layout): Layout {
+  const out: Layout = {}
+  for (const [id, p] of Object.entries(raw).slice(0, 2000))
+    if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) out[id] = { x: Math.round(p.x), y: Math.round(p.y) }
+  return out
+}
 ipcMain.handle('redraw', () => sketcher.requestNow())
 ipcMain.handle('reset', () => store.reset())
 ipcMain.handle('note', (_, text: string) => text.trim() && store.addNote(text.trim()))
