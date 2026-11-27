@@ -1,4 +1,5 @@
 /** Prompts e leitura das respostas do Claude (funcoes puras). */
+import { type SpeakerNames, speakerName } from '@shared/speakers'
 import { AUTO, type CheckKind, type Line } from '@shared/types'
 import type { Mode } from './modes'
 
@@ -44,8 +45,8 @@ export function buildSystem(modes: Map<string, Mode>, mode: string): string {
   )
 }
 
-export function formatTranscript(lines: Line[]): string {
-  return lines.map((l) => `[${l.t}] ${l.who}: ${l.text}`).join('\n')
+export function formatTranscript(lines: Line[], names: SpeakerNames = {}): string {
+  return lines.map((l) => `[${l.t}] ${l.who === 'call' && l.speaker ? speakerName(l.speaker, names) : l.who}: ${l.text}`).join('\n')
 }
 
 export function buildUser(opts: {
@@ -55,11 +56,12 @@ export function buildUser(opts: {
   renderError: string | null
   modeChanged: boolean
   locked?: string[]
+  speakers?: SpeakerNames
 }): string {
   const parts = [
     `Modo atual: ${opts.activeMode || '(nenhum ainda)'}`,
     `Diagrama atual:\n\`\`\`mermaid\n${opts.current || '(vazio)'}\n\`\`\``,
-    `Transcricao:\n${formatTranscript(opts.lines)}`,
+    `Transcricao:\n${formatTranscript(opts.lines, opts.speakers)}`,
   ]
   if (opts.locked?.length)
     parts.push(`Nos TRAVADOS pelo usuario (nao mude o texto, nao remova e nao troque as ligacoes deles): ${opts.locked.join(', ')}`)
@@ -75,8 +77,8 @@ export function parseResponse(text: string): [string | null, string] {
   return [mode ? mode[1].toLowerCase() : null, (code ? code[1] : text).trim()]
 }
 
-export function buildCheckUser(lines: Line[], given: string[]): string {
-  return `Notas ja dadas:\n${given.join('\n') || '(nenhuma)'}\n\nTranscricao recente:\n${formatTranscript(lines)}`
+export function buildCheckUser(lines: Line[], given: string[], names: SpeakerNames = {}): string {
+  return `Notas ja dadas:\n${given.join('\n') || '(nenhuma)'}\n\nTranscricao recente:\n${formatTranscript(lines, names)}`
 }
 
 export function parseChecks(text: string): { kind: CheckKind; text: string }[] {

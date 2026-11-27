@@ -30,6 +30,7 @@ const api: Api = {
   startShare: () => ipcRenderer.invoke('share:start'),
   stopShare: () => ipcRenderer.invoke('share:stop'),
   resolveSuggestion: (id, accept) => ipcRenderer.invoke('suggestion:resolve', id, accept),
+  renameSpeaker: (n, name) => ipcRenderer.invoke('speaker:rename', n, name),
   joinSession: (link) => ipcRenderer.invoke('session:join', link),
   onState: (cb) => {
     const listener = (_: IpcRendererEvent, s: AppState) => cb(s)

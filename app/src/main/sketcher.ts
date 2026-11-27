@@ -112,6 +112,7 @@ export class Sketcher {
           renderError: s.renderError,
           modeChanged,
           locked: s.locked,
+          speakers: s.speakers,
         }),
       )
       if (this.store.resetCount !== epoch) return true // limparam enquanto desenhava: o desenho velho nao volta

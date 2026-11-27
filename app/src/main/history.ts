@@ -71,9 +71,11 @@ export class History {
 
   private onChange(s: AppState): void {
     this.rollIfReset()
-    if (s.lines === this.cur.lines && s.checks === this.cur.checks) return
+    const speakers = Object.keys(s.speakers).length ? s.speakers : undefined
+    if (s.lines === this.cur.lines && s.checks === this.cur.checks && speakers === this.cur.speakers) return
     this.cur.lines = s.lines
     this.cur.checks = s.checks
+    this.cur.speakers = speakers
     this.touch()
   }
 

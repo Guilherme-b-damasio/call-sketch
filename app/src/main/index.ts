@@ -9,6 +9,7 @@ import { listModels } from './openai'
 import { Engine, resolveEngine } from './engine'
 import { History } from './history'
 import { makeMinutes } from './minutes'
+import { ensureVoiceModel } from './voices'
 import { loadModes, type Mode, modeInfo } from './modes'
 import { saveExport } from './pdf'
 import { loadSettings, saveSettings } from './settings'
@@ -69,14 +70,32 @@ const validator = new Validator(store, getLLM, () => settings.checkEvery)
 
 // ------------------------------------------------------------------ motor
 
-function startEngine(): void {
+const voicesDir = join(app.getPath('userData'), 'modelos')
+let voiceModel: Promise<string> | null = null
+let engineRun = 0
+
+async function startEngine(): Promise<void> {
+  const run = ++engineRun
   const command = resolveEngine(settings, { resourcesPath: process.resourcesPath, appPath: app.getAppPath() })
   if (!command) {
     store.setEngine({ state: 'error', msg: 'Motor de áudio não encontrado. Configure o Python nas configurações.' })
     return
   }
   store.setEngine({ state: 'starting', msg: 'iniciando o motor de áudio...' })
-  engine.start(command, settings)
+  let speakers: string | undefined
+  if (settings.speakers) {
+    voiceModel ??= ensureVoiceModel(voicesDir, (pct) =>
+      store.setEngine({ state: 'starting', msg: `baixando o modelo de vozes (só na primeira vez)... ${pct}%` }),
+    )
+    try {
+      speakers = await voiceModel
+    } catch (e) {
+      voiceModel = null // tenta de novo na proxima vez
+      console.error('modelo de vozes:', e)
+    }
+  }
+  if (run !== engineRun) return // mudaram a configuracao enquanto baixava
+  engine.start(command, settings, { speakers })
 }
 
 engine.on('event', (e) => {
@@ -87,9 +106,11 @@ engine.on('event', (e) => {
     case 'ready':
       store.setEngine({ state: 'ready', device: e.device, sources: e.sources })
       break
-    case 'line':
-      store.addLine(e)
+    case 'line': {
+      const { type: _, speaker, ...line } = e
+      store.addLine(speaker ? { ...line, speaker } : line)
       break
+    }
     case 'remove':
       store.removeLines(e.ids)
       break
@@ -324,8 +345,8 @@ function applySettings(next: Settings): void {
   store.setError(null)
   validator.start()
   share.refreshSuggestions()
-  const engineKeys: (keyof Settings)[] = ['whisper', 'language', 'mic', 'pythonPath']
-  if (engineKeys.some((k) => prev[k] !== next[k])) startEngine()
+  const engineKeys: (keyof Settings)[] = ['whisper', 'language', 'mic', 'pythonPath', 'speakers']
+  if (engineKeys.some((k) => prev[k] !== next[k])) void startEngine()
 }
 
 ipcMain.handle('state:get', () => store.state)
@@ -364,7 +385,13 @@ function cleanLayout(raw: Layout): Layout {
   return out
 }
 ipcMain.handle('redraw', () => sketcher.requestNow())
-ipcMain.handle('reset', () => store.reset())
+ipcMain.handle('reset', () => {
+  store.reset()
+  engine.resetSpeakers()
+})
+ipcMain.handle('speaker:rename', (_, n: number, name: string) => {
+  if (Number.isInteger(n) && n > 0 && n < 100) store.renameSpeaker(n, String(name ?? ''))
+})
 ipcMain.handle('note', (_, text: string) => text.trim() && store.addNote(text.trim()))
 ipcMain.handle('paused:set', (_, paused: boolean) => store.setPaused(paused))
 ipcMain.handle('render:error', (_, err: string | null) => store.setRenderError(err))
@@ -425,7 +452,7 @@ ipcMain.handle('modes:open-folder', () => {
 
 app.whenReady().then(() => {
   createMainWindow()
-  startEngine()
+  void startEngine()
   sketcher.start()
   validator.start()
 

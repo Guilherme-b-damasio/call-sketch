@@ -8,6 +8,7 @@ export interface Line {
   text: string
   t: string // HH:MM:SS
   ts: number // epoch em segundos
+  speaker?: number // so na call, com o reconhecimento de voz ligado: Pessoa 1, 2, ...
 }
 
 export type CheckKind = 'errado' | 'duvida'
@@ -62,6 +63,7 @@ export interface CallRecord {
   checks: Check[]
   versions: DiagramVersion[]
   minutes?: string // ata em Markdown, se ja foi gerada
+  speakers?: Record<string, string> // nomes dados as pessoas da call
 }
 
 export interface CallSummary {
@@ -122,6 +124,7 @@ export interface AppState {
   layout: Layout // da aba ativa
   locked: string[] // da aba ativa
   suggestions: Suggestion[] // de quem assiste, esperando aceitar/recusar
+  speakers: Record<string, string> // nome dado a cada pessoa da call ("1" -> "Ana")
 }
 
 /** O que quem assiste a sessao recebe (so o desenho, nunca a conversa). */
@@ -174,6 +177,7 @@ export interface Settings {
   pythonPath: string // vazio = automatico
   history: boolean // guarda as calls no PC pra rever depois
   suggestions: boolean // quem assiste a sessao pode mandar sugestoes
+  speakers: boolean // separa quem fala na call (baixa um modelo de ~26 MB na primeira vez)
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -194,6 +198,7 @@ export const DEFAULT_SETTINGS: Settings = {
   pythonPath: '',
   history: true,
   suggestions: true,
+  speakers: true,
 }
 
 export interface LLMPreset {
@@ -314,6 +319,8 @@ export interface Api {
   stopShare(): Promise<void>
   /** Aceitar vira nota pra IA; recusar so descarta. Quem mandou fica sabendo. */
   resolveSuggestion(id: string, accept: boolean): Promise<void>
+  /** Da nome a uma pessoa da call (vazio volta a ser "Pessoa N"). */
+  renameSpeaker(n: number, name: string): Promise<void>
   /** Abre a sessao de outra pessoa numa janela (aceita o link https ou callsketch://). */
   joinSession(link: string): Promise<void>
   onState(cb: (s: AppState) => void): () => void

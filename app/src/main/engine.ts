@@ -9,7 +9,7 @@ import type { Settings } from '@shared/types'
 export type EngineEvent =
   | { type: 'status'; msg: string }
   | { type: 'ready'; device: 'gpu' | 'cpu'; sources: { who: string; name: string }[] }
-  | { type: 'line'; id: number; who: 'call' | 'eu'; text: string; t: string; ts: number }
+  | { type: 'line'; id: number; who: 'call' | 'eu'; text: string; t: string; ts: number; speaker?: number | null }
   | { type: 'remove'; ids: number[] }
   | { type: 'speaking'; on: boolean; text: string }
   | { type: 'error'; msg: string }
@@ -38,10 +38,11 @@ export class Engine extends EventEmitter<{ event: [EngineEvent]; exit: [number |
     return this.proc !== null
   }
 
-  start(command: EngineCommand, s: Settings): void {
+  start(command: EngineCommand, s: Settings, extra: { speakers?: string } = {}): void {
     this.stop()
     const args = [...command.args, '--whisper', s.whisper, '--language', s.language, '--max-phrase', '8']
     if (!s.mic) args.push('--no-mic')
+    if (extra.speakers) args.push('--speakers', extra.speakers)
     const proc = spawn(command.cmd, args, {
       windowsHide: true,
       env: { ...process.env, PYTHONUTF8: '1', PYTHONUNBUFFERED: '1', HF_HUB_DISABLE_SYMLINKS_WARNING: '1' },
@@ -65,6 +66,11 @@ export class Engine extends EventEmitter<{ event: [EngineEvent]; exit: [number |
       if (this.proc === proc) this.proc = null
       this.emit('exit', code, this.stderrTail.join('\n'))
     })
+  }
+
+  /** Call nova: as vozes voltam a contar da Pessoa 1. */
+  resetSpeakers(): void {
+    this.send({ cmd: 'reset-speakers' })
   }
 
   say(text: string, voice: string): void {
